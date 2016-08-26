@@ -12,6 +12,7 @@ thread_pool::thread_pool(int pool_size):
 	if(_pool_size==0)
 		_pool_size=1;
 	_stop_threads=false;
+	_is_started=false;
 
 }
 void thread_pool::start(){

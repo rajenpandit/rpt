@@ -4,6 +4,7 @@
 #include "vector"
 #include "socket_base.h"
 #include <memory>
+#include <sys/ioctl.h>
 namespace rpt{
 class client_iostream : public fdbase{
 public:
@@ -45,20 +46,30 @@ public:
 			return _socket->send(data, size);
 		return false;
 	}
+	virtual bool write(const std::string& data){
+		return write(data.c_str(),data.size());
+	}
+	virtual bool write(const std::vector<char>& data){
+		if(data.size())
+			return write(&data[0],data.size());
+		return false;
+	}
 	virtual void notify_read(__attribute__((unused)) unsigned int events){
+		int fd = _socket->get_fd();
 		while(true){
-			std::vector<char> _data;
-			char ch;
-			while(_socket->receive(&ch, 1, false)){
-				_data.push_back(ch);
-			}
-			if(_data.empty())
+			int len=1;
+			ioctl(fd, FIONREAD, &len);
+			std::vector<char> data(len);
+			if(!_socket->receive(&data[0], len, false)){
 				break;
-			read(&_data[0],_data.size());
+			}
+			if(data.empty())
+				break;
+			notify(data);
 		}
 	}
 public:
-	virtual void read(void* data, size_t size) = 0;
+	virtual void notify(const std::vector<char>& data) = 0;
 public:
 	operator socket_base& (){
 		return *_socket;

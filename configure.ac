@@ -2,34 +2,27 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([rpt], [1.0.0.0.0], [rajenpandit@gmail.com])
+AC_INIT([librpt], [1.0.0], [rajenpandit@gmail.com])
+m4_define([librpt_lt_current],	[1])
+m4_define([librpt_lt_revision],	[0])
+m4_define([librpt_lt_age],    	[0])
+LT_CURRENT=librpt_lt_current
+AC_SUBST(LT_CURRENT)
+LT_REVISION=librpt_lt_revision
+AC_SUBST(LT_REVISION)
+LT_AGE=librpt_lt_age
+AC_SUBST(LT_AGE)
+LT_INIT([])
 AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_SRCDIR([src/thread_pool/task.h])
 AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_MACRO_DIR([m4])
 # Checks for programs.
-AC_PROG_RANLIB
 AC_PROG_CXX
 AC_PROG_CC
 
-AC_LANG_PUSH([C++])
-
-AC_COMPILE_IFELSE([AC_LANG_SOURCE(
-  [[template <typename T>
-    struct check
-    {
-      static_assert(sizeof(int) <= sizeof(T), "not big enough");
-    };
-
-    typedef check<check<bool>> right_angle_brackets;
-
-    int a;
-    decltype(a) b;
-
-    typedef check<int> check_type;
-    check_type c;
-    check_type&& cr = static_cast<check_type&&>(c);]])],,
-  AC_MSG_FAILURE(['$CXX $CXXFLAGS' does not accept ISO C++11]))
-
+AC_LANG([C++])
+AX_CXX_COMPILE_STDCXX_14
 
 # Checks for libraries.
 
@@ -47,4 +40,5 @@ AC_CONFIG_FILES([Makefile
                  src/Makefile
                  src/tcp_server/Makefile
                  src/thread_pool/Makefile])
+AC_PROG_RANLIB
 AC_OUTPUT

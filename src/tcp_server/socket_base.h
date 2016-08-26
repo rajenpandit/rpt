@@ -21,6 +21,7 @@ public: //NOTE: All virtual function must be inherited by derived class
 	virtual bool send(const void *buffer, size_t size, int flags) = 0;
 	virtual bool receive(void *buffer,size_t size,bool block=true) = 0;
 	virtual bool close() = 0;
+	virtual ~socket_base() {}
 public:
 	const int& get_fd(){
 		return _fd;

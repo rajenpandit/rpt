@@ -194,9 +194,6 @@ class buffered_client_iostream : public client_iostream{
 		void clear_conditions(){
 			_conditions.clear();
 		}
-		void read(__attribute__((unused)) void* data, __attribute__((unused)) size_t size) {
-			//Not used
-		}
 	public:
 		virtual void notify(const std::vector<char>& data) = 0 ;
 	private:

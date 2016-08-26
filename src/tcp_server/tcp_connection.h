@@ -37,12 +37,14 @@ public:
 			std::function<void(connection_status_t, error_t)> error_handler=nullptr) : 
 		_socket_factory(socket_factory),_threads(std::make_shared<thread_pool>(max_thread)),_reactor(max_events),
 		_error_handler(error_handler){
+		_shared_thread=false;
 	}
 /* Constructor with thread_pool */
 	tcp_connection(std::shared_ptr<socket_factory> socket_factory,std::shared_ptr<thread_pool> threads,int max_events=1000, 
 			std::function<void(connection_status_t, error_t)> error_handler=nullptr) : 
 		_socket_factory(socket_factory), _threads(threads),_reactor(max_events),
 		_error_handler(error_handler){
+		_shared_thread=true;
 	}
 public:
 	tcp_connection(tcp_connection&)=delete;
@@ -71,16 +73,22 @@ public:
 	T* get_connection(const std::string& ip, int port, TArgs... args);
 	void release_connection(client_iostream* client);
 public: //functionalities
-	void start_listening(std::shared_ptr<acceptor_base> accept,const endpoint &e,unsigned int max_connection=std::numeric_limits<unsigned int>::max(),
+	void start_listening(std::shared_ptr<acceptor_base> accept,const endpoint &e,
+			unsigned int max_connection=std::numeric_limits<unsigned int>::max(),
 			bool block=true) noexcept;	
 	void start_reactor(bool block=true){
-		_threads->start(); // no action will be taken if threads are already running
+		if(_shared_thread==false)
+			_threads->start(); // no action will be taken if threads are already running
 		_reactor.run(block);
 			//_threads->add_task(make_task(&epoll_reactor::run,&_reactor,block));
 	}
 	void stop_reactor(){
 		_reactor.stop();
-		_threads->stop();
+		if(_shared_thread==false)
+			_threads->stop();
+	}
+	void stop_listening(){
+		stop_reactor();
 	}
 private:
 	void set_error(connection_status_t status, error_t error);
@@ -95,6 +103,7 @@ private:
 	std::unordered_map<std::string,std::queue<std::shared_ptr<fdbase>>> _client_map;
 	std::mutex _client_map_mutex;
 	std::atomic_uint _max_connection;
+	bool _shared_thread;
 };
 
 template<typename T, class... TArgs>

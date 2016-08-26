@@ -101,7 +101,7 @@ void tcp_connection::set_error(connection_status_t status, error_t error){
 }
 
 void tcp_connection::start_listening(std::shared_ptr<acceptor_base> acceptor,const endpoint &e,unsigned int max_connection,
-		__attribute__((unused)) bool block) noexcept{
+		bool block) noexcept{
 	_acceptor = acceptor;	
 	_max_connection = max_connection;
 	std::unique_ptr<socket_base> socket = _socket_factory->get_socket();
@@ -126,5 +126,6 @@ void tcp_connection::start_listening(std::shared_ptr<acceptor_base> acceptor,con
 	using std::placeholders::_1;
 	using std::placeholders::_2;
 	_reactor.register_descriptor(std::make_shared<server_socket>(std::move(socket)),std::bind(&tcp_connection::accept,this,_1,_2));
+	start_reactor(block);
 }
 

@@ -1,6 +1,7 @@
 #ifndef __ACCEPTOR_BASE_H__
 #define __ACCEPTOR_BASE_H__
 #include <memory>
+#include "client_iostream.h"
 namespace rpt{
 class acceptor_base{
 public:
