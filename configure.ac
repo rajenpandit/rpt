@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.69])
+AC_PREREQ([2.63])
 AC_INIT([librpt], [1.0.0], [rajenpandit@gmail.com])
 m4_define([librpt_lt_current],	[1])
 m4_define([librpt_lt_revision],	[0])
