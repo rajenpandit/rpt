@@ -50,7 +50,6 @@ void tcp_connection::release_connection(client_iostream* client){
  */
 void tcp_connection::accept(std::shared_ptr<fdbase> fdb, unsigned int events){
 	//socket_base client_socket=_socket.get_new_socket();
-
 		if(fdb->get_mutex().try_lock())
 		{
 			_threads->add_task(make_task(std::bind([=](){
@@ -80,7 +79,7 @@ void tcp_connection::accept_impl(std::shared_ptr<fdbase> fdb,__attribute__((unus
 				}
 				using std::placeholders::_1;
 				using std::placeholders::_2;
-
+				client->set_thread_pool(_threads);
 				client->register_close_handler(std::bind(&tcp_connection::remove_client,this,_1));
 				_reactor.register_descriptor(client,std::bind(&tcp_connection::client_handler,this,_1,_2));
 				_acceptor->notify_accept(client, acceptor_base::ACCEPT_SUCCESS);

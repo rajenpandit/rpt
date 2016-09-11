@@ -81,7 +81,7 @@ build_triplet = x86_64-unknown-linux-gnu
 host_triplet = x86_64-unknown-linux-gnu
 subdir = src/thread_pool
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
-	$(top_srcdir)/depcomp $(include_HEADERS)
+	$(top_srcdir)/depcomp $(rpt_HEADERS)
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
 	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
@@ -95,12 +95,16 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 libthreadpool_la_LIBADD =
-am_libthreadpool_la_OBJECTS = thread_pool.lo
+am_libthreadpool_la_OBJECTS = libthreadpool_la-thread_pool.lo
 libthreadpool_la_OBJECTS = $(am_libthreadpool_la_OBJECTS)
 AM_V_lt = $(am__v_lt_$(V))
 am__v_lt_ = $(am__v_lt_$(AM_DEFAULT_VERBOSITY))
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+libthreadpool_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CXX \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CXXLD) \
+	$(libthreadpool_la_CXXFLAGS) $(CXXFLAGS) \
+	$(libthreadpool_la_LDFLAGS) $(LDFLAGS) -o $@
 AM_V_P = $(am__v_P_$(V))
 am__v_P_ = $(am__v_P_$(AM_DEFAULT_VERBOSITY))
 am__v_P_0 = false
@@ -169,8 +173,8 @@ am__uninstall_files_from_dir = { \
     || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
-am__installdirs = "$(DESTDIR)$(includedir)"
-HEADERS = $(include_HEADERS)
+am__installdirs = "$(DESTDIR)$(rptdir)"
+HEADERS = $(rpt_HEADERS)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 # Read a list of newline-separated strings from the standard input,
 # and print each of them once, without duplicates.  Input order is
@@ -207,7 +211,7 @@ CPPFLAGS =
 CXX = g++ -std=gnu++14
 CXXCPP = g++ -E
 CXXDEPMODE = depmode=gcc3
-CXXFLAGS = -Wall -Wextra
+CXXFLAGS = -O2
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
@@ -303,7 +307,7 @@ mandir = ${datarootdir}/man
 mkdir_p = $(MKDIR_P)
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /home/rajendra/rptlib
+prefix = /usr/local
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
@@ -315,7 +319,10 @@ top_build_prefix = ../../
 top_builddir = ../..
 top_srcdir = ../..
 noinst_LTLIBRARIES = libthreadpool.la
-include_HEADERS = task.h  thread_pool.h
+rptdir = $(includedir)/rpt
+rpt_HEADERS = task.h  thread_pool.h asm_defines.h
+libthreadpool_la_CXXFLAGS = -fno-omit-frame-pointer -ffloat-store
+libthreadpool_la_LDFLAGS = -fno-omit-frame-pointer
 libthreadpool_la_SOURCES = thread_pool.cpp
 all: all-am
 
@@ -330,9 +337,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu src/thread_pool/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign src/thread_pool/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu src/thread_pool/Makefile
+	  $(AUTOMAKE) --foreign src/thread_pool/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -364,7 +371,7 @@ clean-noinstLTLIBRARIES:
 	}
 
 libthreadpool.la: $(libthreadpool_la_OBJECTS) $(libthreadpool_la_DEPENDENCIES) $(EXTRA_libthreadpool_la_DEPENDENCIES) 
-	$(AM_V_CXXLD)$(CXXLINK)  $(libthreadpool_la_OBJECTS) $(libthreadpool_la_LIBADD) $(LIBS)
+	$(AM_V_CXXLD)$(libthreadpool_la_LINK)  $(libthreadpool_la_OBJECTS) $(libthreadpool_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -372,7 +379,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-include ./$(DEPDIR)/thread_pool.Plo
+include ./$(DEPDIR)/libthreadpool_la-thread_pool.Plo
 
 .cpp.o:
 	$(AM_V_CXX)depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
@@ -398,32 +405,39 @@ include ./$(DEPDIR)/thread_pool.Plo
 #	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
 #	$(AM_V_CXX_no)$(LTCXXCOMPILE) -c -o $@ $<
 
+libthreadpool_la-thread_pool.lo: thread_pool.cpp
+	$(AM_V_CXX)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libthreadpool_la_CXXFLAGS) $(CXXFLAGS) -MT libthreadpool_la-thread_pool.lo -MD -MP -MF $(DEPDIR)/libthreadpool_la-thread_pool.Tpo -c -o libthreadpool_la-thread_pool.lo `test -f 'thread_pool.cpp' || echo '$(srcdir)/'`thread_pool.cpp
+	$(AM_V_at)$(am__mv) $(DEPDIR)/libthreadpool_la-thread_pool.Tpo $(DEPDIR)/libthreadpool_la-thread_pool.Plo
+#	$(AM_V_CXX)source='thread_pool.cpp' object='libthreadpool_la-thread_pool.lo' libtool=yes \
+#	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) \
+#	$(AM_V_CXX_no)$(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libthreadpool_la_CXXFLAGS) $(CXXFLAGS) -c -o libthreadpool_la-thread_pool.lo `test -f 'thread_pool.cpp' || echo '$(srcdir)/'`thread_pool.cpp
+
 mostlyclean-libtool:
 	-rm -f *.lo
 
 clean-libtool:
 	-rm -rf .libs _libs
-install-includeHEADERS: $(include_HEADERS)
+install-rptHEADERS: $(rpt_HEADERS)
 	@$(NORMAL_INSTALL)
-	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
+	@list='$(rpt_HEADERS)'; test -n "$(rptdir)" || list=; \
 	if test -n "$$list"; then \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(includedir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(includedir)" || exit 1; \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(rptdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(rptdir)" || exit 1; \
 	fi; \
 	for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
 	  echo "$$d$$p"; \
 	done | $(am__base_list) | \
 	while read files; do \
-	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(includedir)'"; \
-	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(includedir)" || exit $$?; \
+	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(rptdir)'"; \
+	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(rptdir)" || exit $$?; \
 	done
 
-uninstall-includeHEADERS:
+uninstall-rptHEADERS:
 	@$(NORMAL_UNINSTALL)
-	@list='$(include_HEADERS)'; test -n "$(includedir)" || list=; \
+	@list='$(rpt_HEADERS)'; test -n "$(rptdir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	dir='$(DESTDIR)$(includedir)'; $(am__uninstall_files_from_dir)
+	dir='$(DESTDIR)$(rptdir)'; $(am__uninstall_files_from_dir)
 
 ID: $(am__tagged_files)
 	$(am__define_uniq_tagged_files); mkid -fID $$unique
@@ -511,7 +525,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(LTLIBRARIES) $(HEADERS)
 installdirs:
-	for dir in "$(DESTDIR)$(includedir)"; do \
+	for dir in "$(DESTDIR)$(rptdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -567,7 +581,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-includeHEADERS
+install-data-am: install-rptHEADERS
 
 install-dvi: install-dvi-am
 
@@ -613,7 +627,7 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-includeHEADERS
+uninstall-am: uninstall-rptHEADERS
 
 .MAKE: install-am install-strip
 
@@ -623,14 +637,13 @@ uninstall-am: uninstall-includeHEADERS
 	distclean-libtool distclean-tags distdir dvi dvi-am html \
 	html-am info info-am install install-am install-data \
 	install-data-am install-dvi install-dvi-am install-exec \
-	install-exec-am install-html install-html-am \
-	install-includeHEADERS install-info install-info-am \
-	install-man install-pdf install-pdf-am install-ps \
-	install-ps-am install-strip installcheck installcheck-am \
-	installdirs maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-compile mostlyclean-generic \
-	mostlyclean-libtool pdf pdf-am ps ps-am tags tags-am uninstall \
-	uninstall-am uninstall-includeHEADERS
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-rptHEADERS install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags tags-am uninstall uninstall-am uninstall-rptHEADERS
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.

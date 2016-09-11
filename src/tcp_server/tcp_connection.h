@@ -77,15 +77,15 @@ public: //functionalities
 			unsigned int max_connection=std::numeric_limits<unsigned int>::max(),
 			bool block=true) noexcept;	
 	void start_reactor(bool block=true){
-		if(_shared_thread==false)
-			_threads->start(); // no action will be taken if threads are already running
+//		if(_shared_thread==false)
+//			_threads->start(); // no action will be taken if threads are already running
 		_reactor.run(block);
 			//_threads->add_task(make_task(&epoll_reactor::run,&_reactor,block));
 	}
 	void stop_reactor(){
 		_reactor.stop();
 		if(_shared_thread==false)
-			_threads->stop();
+			_threads->join();
 	}
 	void stop_listening(){
 		stop_reactor();

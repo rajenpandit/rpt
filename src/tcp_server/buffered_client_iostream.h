@@ -88,12 +88,15 @@ private:
 
 class buffered_client_iostream : public client_iostream{
 	public:
-		buffered_client_iostream(std::unique_ptr<socket_base> soc) : client_iostream(std::move(soc)){
+		buffered_client_iostream(std::unique_ptr<socket_base> soc,
+				std::function<void(const std::vector<char>& data)> notify=nullptr) : 
+			client_iostream(std::move(soc),notify){
 			init();
 		}
 		buffered_client_iostream(const buffered_client_iostream&) = delete;
 		void operator = (const buffered_client_iostream&) = delete;
-		buffered_client_iostream(buffered_client_iostream&& bc_ios) : client_iostream(std::forward<buffered_client_iostream&&>(bc_ios)){
+		buffered_client_iostream(buffered_client_iostream&& bc_ios) : 
+			client_iostream(std::forward<buffered_client_iostream&&>(bc_ios)){
 		}
 		void operator = (buffered_client_iostream && bc_ios){
 			swap(*this, bc_ios);
@@ -111,83 +114,50 @@ class buffered_client_iostream : public client_iostream{
 			//std::swap(bc_ios1._segmented_data, bc_ios2._segmented_data);
 		//	std::swap(bc_ios1._last_check, bc_ios2._last_check);
 		}
-	public:
-		virtual void notify_read(__attribute__((unused)) unsigned int events){
-			int fd = _socket->get_fd();
-			while(true){
-				int len=1;
-				ioctl(fd, FIONREAD, &len);
-				std::vector<char> v(len);
-				std::cout<<"Attempting to receive:"<<len<<std::endl;
-				if(_socket->receive(&v[0], len, false)){
-					_data.insert(_data.end(),v.begin(),v.end());
-				}
-				else{
-					std::cout<<"No data receieved"<<std::endl;
-				}
-				std::cout<<"Data received"<<std::endl;
-				if( !_conditions.empty() ){
-					if( !_data.empty() ){
-						bool is_notified=false;
-						for(auto &condition : _conditions)
-						{
-							auto cit = condition->check(_data,0);
-							if( condition->is_true()){
-								notify({_data.cbegin(),cit});	
-								_data.erase(_data.cbegin(),cit);
-								is_notified = true;
-								break;
-							}
-						}
-						if(is_notified)		
-							continue;
+	protected:
+		virtual bool rcv_condition(){
+			if( !_conditions.empty() ){
+				if( !_data.empty() ){
+					for(auto &condition : _conditions){
+						condition->check(_data,0);
+						if(condition->is_true())
+							return true;
 					}
+					return false;
 				}
-				else{
-					if(!_data.empty()){
-						notify(_data);	
-						_data.clear();
-						continue;
-					}
-				}
-				break;
-			};
-			std::cout<<"Retuning from function"<<std::endl;
+			}
+			else{
+				return !_data.empty();
+			}
+			return false;
 		}
-#if 0
-		bool is_data_available(){
+		virtual void get_data(std::vector<char>& data){
 			if( !_conditions.empty() ){
 				if( !_data.empty() ){
 					for(auto &condition : _conditions)
 					{
 						auto cit = condition->check(_data,0);
 						if( condition->is_true()){
-							//	read( &_data[0], cit - _data.cbegin() );
-							_segmented_data.assign(_data.cbegin(),cit);					
+							data.insert(data.end(),_data.cbegin(),cit);	
 							_data.erase(_data.cbegin(),cit);
-							_last_check=0;
-
-							return true;
+							break;
 						}
 					}
-					_last_check=_data.size();
 				}
 			}
 			else{
 				if(!_data.empty()){
-					_segmented_data=_data;
+					data.insert(data.end(),_data.begin(),_data.end());	
 					_data.clear();
-					return true;
 				}
 			}
-			return false;
 		}
-		std::vector<char> get_data(){
-			std::vector<char> vec = _segmented_data;
-			_segmented_data.clear();
-			return vec;
+		virtual void get_data(std::string& data){
+			std::vector<char> v;
+			get_data(v);
+			data.insert(data.end(),v.begin(),v.end());
 		}
-#endif
+	public:
 		void set_condition(std::unique_ptr<condition_t> condition){
 			_conditions.push_back(std::move(condition));
 		}
@@ -195,10 +165,15 @@ class buffered_client_iostream : public client_iostream{
 			_conditions.clear();
 		}
 	public:
-		virtual void notify(const std::vector<char>& data) = 0 ;
+		using client_iostream::read;
+		std::string read(std::unique_ptr<condition_t> condition){
+			clear_conditions();
+			set_condition(std::move(condition));		
+			return read();
+		}
+//		virtual void notify(const std::vector<char>& data) = 0 ;
 	private:
 		std::vector<std::unique_ptr<condition_t>> _conditions;
-		std::vector<char> _data;
 //		std::vector<char> _segmented_data;
 	//	int _last_check;
 };

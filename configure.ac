@@ -18,6 +18,7 @@ AC_CONFIG_SRCDIR([src/thread_pool/task.h])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])
 # Checks for programs.
+: ${CXXFLAGS=""}
 AC_PROG_CXX
 AC_PROG_CC
 

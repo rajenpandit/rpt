@@ -18,7 +18,6 @@ bool epoll_reactor::register_descriptor(std::shared_ptr<fdbase> fdb, std::functi
 		_callback_map.emplace(fd,call_back);
 		event.data.ptr = call_back.get();
 	}
-
 	event.events = EPOLLIN | EPOLLET | EPOLLRDHUP;
 	s = epoll_ctl (_efd, EPOLL_CTL_ADD, fd, &event);
 	if (s == -1)
