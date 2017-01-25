@@ -16,9 +16,8 @@ public:
 	virtual bool listen(int backlog);
 	virtual bool accept(socket_base &socket);
 	virtual bool connect();
-	virtual bool send(const void *buffer, size_t size);
-	virtual bool send(const void *buffer, size_t size, int flags);
-	virtual bool receive(void *buffer,size_t size,bool block=true);
+	virtual int send(const void *buffer, size_t size, int flags);
+	virtual int receive(void *buffer,size_t size,bool block=true);
 	virtual bool close();
 private:
 	addrinfo _addrinfo;

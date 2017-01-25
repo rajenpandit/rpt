@@ -179,6 +179,7 @@ bool thread_pool::invoke_task(std::chrono::milliseconds waiting_period)
 	bool is_waiting_defined=false;
 	std::shared_ptr<task_base> t;
 	{
+			
 		std::unique_lock<std::mutex> lk(_cv_mutex);
 		if(waiting_period > 0ms)
 		{
@@ -193,12 +194,18 @@ bool thread_pool::invoke_task(std::chrono::milliseconds waiting_period)
 			_cv.wait(lk, [this]{return (!_task_queue.empty() || _stop_threads);});	
 		}
 		std::lock_guard<std::mutex> lkg(_queue_mutex);
+#if 0
 		if(_stop_threads){
 			while(!_task_queue.empty()){
 				_task_queue.pop();
 			}
 			return false;
 		}
+#else
+		if(_stop_threads && _task_queue.empty()){
+			return false;
+		}
+#endif
 		t = _task_queue.top();
 		_task_queue.pop();
 	}

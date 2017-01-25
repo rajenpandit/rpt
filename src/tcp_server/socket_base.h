@@ -17,9 +17,8 @@ public: //NOTE: All virtual function must be inherited by derived class
 	virtual bool listen(int backlog) = 0;
 	virtual bool accept(socket_base &socket) = 0;
 	virtual bool connect() = 0;
-	virtual bool send(const void *buffer, size_t size) = 0;
-	virtual bool send(const void *buffer, size_t size, int flags) = 0;
-	virtual bool receive(void *buffer,size_t size,bool block=true) = 0;
+	virtual int send(const void *buffer, size_t size, int flags=0) = 0;
+	virtual int receive(void *buffer,size_t size,bool block=true) = 0;
 	virtual bool close() = 0;
 	virtual ~socket_base() {}
 public:

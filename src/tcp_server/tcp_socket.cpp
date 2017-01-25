@@ -75,24 +75,17 @@ bool tcp_socket::connect(){
 	_is_connected = true;
 	return true;
 }
-bool tcp_socket::send(const void *buffer, size_t size){
-	return send(buffer,size,0);
+
+int tcp_socket::send(const void *buffer, size_t size, int flags){
+	return ::send(_fd,buffer,size,flags);
 }
-bool tcp_socket::send(const void *buffer, size_t size, int flags){
-	if(::send(_fd,buffer,size,flags) == -1)
-		return false;
-	return true;
-}
-bool tcp_socket::receive(void *buffer,size_t size,bool block){
+int tcp_socket::receive(void *buffer,size_t size,bool block){
 	if(block){
-		if(recv(_fd,buffer,size,MSG_WAITALL) <= 0)
-			return false;
+		return recv(_fd,buffer,size,MSG_WAITALL);
 	}
 	else{
-		if(recv(_fd,buffer,size,MSG_DONTWAIT) <= 0)
-			return false;
+		return recv(_fd,buffer,size,MSG_DONTWAIT);
 	}
-	return true;
 }
 bool tcp_socket::close(){
 	if(::close(_fd)==-1)

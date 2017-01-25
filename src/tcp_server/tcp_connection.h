@@ -37,14 +37,18 @@ public:
 			std::function<void(connection_status_t, error_t)> error_handler=nullptr) : 
 		_socket_factory(socket_factory),_threads(std::make_shared<thread_pool>(max_thread)),_reactor(max_events),
 		_error_handler(error_handler){
+
 		_shared_thread=false;
+		_is_running=false;
 	}
 /* Constructor with thread_pool */
 	tcp_connection(std::shared_ptr<socket_factory> socket_factory,std::shared_ptr<thread_pool> threads,int max_events=1000, 
 			std::function<void(connection_status_t, error_t)> error_handler=nullptr) : 
 		_socket_factory(socket_factory), _threads(threads),_reactor(max_events),
 		_error_handler(error_handler){
+
 		_shared_thread=true;
+		_is_running=false;
 	}
 public:
 	tcp_connection(tcp_connection&)=delete;
@@ -52,6 +56,7 @@ public:
 	void operator=(tcp_connection&)=delete;
 	void operator=(tcp_connection&&)=delete;
 	~tcp_connection(){
+		stop();
 	}
 public:
 	void remove_client(int fd);
@@ -73,22 +78,24 @@ public:
 	T* get_connection(const std::string& ip, int port, TArgs... args);
 	void release_connection(client_iostream* client);
 public: //functionalities
-	void start_listening(std::shared_ptr<acceptor_base> accept,const endpoint &e,
+	void start(std::shared_ptr<acceptor_base> accept,const endpoint &e,
 			unsigned int max_connection=std::numeric_limits<unsigned int>::max(),
 			bool block=true) noexcept;	
-	void start_reactor(bool block=true){
-//		if(_shared_thread==false)
-//			_threads->start(); // no action will be taken if threads are already running
-		_reactor.run(block);
-			//_threads->add_task(make_task(&epoll_reactor::run,&_reactor,block));
+	void start(bool block=true){
+		std::lock_guard<std::mutex> lk(_mutex);
+		if(_is_running == false){
+			_reactor.run(block);
+			_is_running = true;
+		}
 	}
-	void stop_reactor(){
-		_reactor.stop();
-		if(_shared_thread==false)
-			_threads->join();
-	}
-	void stop_listening(){
-		stop_reactor();
+	void stop(){
+		std::lock_guard<std::mutex> lk(_mutex);
+		if(_is_running == true){
+			_reactor.stop();
+			if(_shared_thread==false)
+				_threads->join();
+			_is_running = false;	
+		}
 	}
 private:
 	void set_error(connection_status_t status, error_t error);
@@ -101,9 +108,10 @@ private:
 	connection_status_t _connection_status;
 	std::shared_ptr<acceptor_base> _acceptor;
 	std::unordered_map<std::string,std::queue<std::shared_ptr<fdbase>>> _client_map;
-	std::mutex _client_map_mutex;
+	std::mutex _mutex;
 	std::atomic_uint _max_connection;
 	bool _shared_thread;
+	bool _is_running;
 };
 
 template<typename T, class... TArgs>
@@ -113,7 +121,7 @@ T* tcp_connection::get_connection(const std::string& ip, int port, TArgs... args
 	auto it = _client_map.find(key);
 	if( it != _client_map.end()){
 		{
-			std::lock_guard<std::mutex> lk(_client_map_mutex);
+			std::lock_guard<std::mutex> lk(_mutex);
 			auto& connection_que = it->second;
 			if( !connection_que.empty() ){
 				auto fd = connection_que.front();	
@@ -126,7 +134,7 @@ T* tcp_connection::get_connection(const std::string& ip, int port, TArgs... args
 		_client_map.insert(std::pair<std::string,std::queue<std::shared_ptr<fdbase>>>(key,std::queue<std::shared_ptr<fdbase>>()));
 	}
 	if(client == nullptr){
-		client = std::make_shared<T>(args...);
+		client = std::make_shared<T>(std::forward<TArgs>(args)...);
 		(*client)->create(port,ip.c_str());
 		if((*client)->connect() == false)
 			return nullptr;
@@ -134,6 +142,7 @@ T* tcp_connection::get_connection(const std::string& ip, int port, TArgs... args
 //	client->register_close_handler(std::bind(&tcp_connection::remove_descriptor,this,std::placeholders::_1));
 	_reactor.register_descriptor(client,std::bind(&tcp_connection::client_handler,this,std::placeholders::_1,std::placeholders::_2));
 	client->set_id(key);
+	client->set_thread_pool(_threads);
 	return client.get();
 }
 }

@@ -17416,7 +17416,7 @@ _ACEOF
 fi
 done
 
-ac_config_files="$ac_config_files Makefile src/Makefile src/tcp_server/Makefile src/thread_pool/Makefile"
+ac_config_files="$ac_config_files Makefile src/Makefile src/tcp_server/Makefile src/thread_pool/Makefile src/http_server/Makefile test/Makefile"
 
 if test -n "$ac_tool_prefix"; then
   # Extract the first word of "${ac_tool_prefix}ranlib", so it can be a program name with args.
@@ -18621,6 +18621,8 @@ do
     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
     "src/tcp_server/Makefile") CONFIG_FILES="$CONFIG_FILES src/tcp_server/Makefile" ;;
     "src/thread_pool/Makefile") CONFIG_FILES="$CONFIG_FILES src/thread_pool/Makefile" ;;
+    "src/http_server/Makefile") CONFIG_FILES="$CONFIG_FILES src/http_server/Makefile" ;;
+    "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

@@ -53,7 +53,7 @@ void epoll_reactor::run_impl(){
 	struct epoll_event* events = static_cast<epoll_event*>(calloc (_max_events, sizeof(epoll_event)));
 	while(true)
 	{
-		int n = epoll_wait (_efd, events, _max_events, -1);
+		int n = epoll_wait (_efd, events, _max_events, 100);
 #ifdef POLL_SLEEP
 		int waiting_time = 100;
 		std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();

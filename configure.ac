@@ -40,6 +40,9 @@ AC_CHECK_FUNCS([memset socket])
 AC_CONFIG_FILES([Makefile
                  src/Makefile
                  src/tcp_server/Makefile
-                 src/thread_pool/Makefile])
+                 src/thread_pool/Makefile
+		 src/http_server/Makefile
+		 test/Makefile
+		 ])
 AC_PROG_RANLIB
 AC_OUTPUT

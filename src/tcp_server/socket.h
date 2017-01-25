@@ -57,13 +57,10 @@ public: //NOTE: All  function must be inherited by derived class
 	bool connect(){
 		return _socket->connect();
 	}
-	bool send(const void *buffer, size_t size){
-		return _socket->send(buffer,size);
-	}
-	bool send(const void *buffer, size_t size, int flags){
+	int send(const void *buffer, size_t size, int flags=0){
 		return _socket->send(buffer,size,flags);
 	}
-	bool receive(void *buffer,size_t size,bool block=true){
+	int receive(void *buffer,size_t size,bool block=true){
 		return _socket->receive(buffer, size, block);
 	}
 	bool close(){

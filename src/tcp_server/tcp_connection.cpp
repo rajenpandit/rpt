@@ -34,7 +34,7 @@ void tcp_connection::release_connection(client_iostream* client){
 		auto it = _client_map.find(key);
 		if( it != _client_map.end()){
 			{
-				std::lock_guard<std::mutex> lk(_client_map_mutex);
+				std::lock_guard<std::mutex> lk(_mutex);
 				auto& connection_que = it->second;
 				std::shared_ptr<fdbase> fd = _reactor.remove_descriptor(client->get_fd());
 				if(fd != nullptr){
@@ -99,7 +99,7 @@ void tcp_connection::set_error(connection_status_t status, error_t error){
 		_error_handler(_connection_status, _connection_error);
 }
 
-void tcp_connection::start_listening(std::shared_ptr<acceptor_base> acceptor,const endpoint &e,unsigned int max_connection,
+void tcp_connection::start(std::shared_ptr<acceptor_base> acceptor,const endpoint &e,unsigned int max_connection,
 		bool block) noexcept{
 	_acceptor = acceptor;	
 	_max_connection = max_connection;
@@ -125,6 +125,6 @@ void tcp_connection::start_listening(std::shared_ptr<acceptor_base> acceptor,con
 	using std::placeholders::_1;
 	using std::placeholders::_2;
 	_reactor.register_descriptor(std::make_shared<server_socket>(std::move(socket)),std::bind(&tcp_connection::accept,this,_1,_2));
-	start_reactor(block);
+	start(block);
 }
 
