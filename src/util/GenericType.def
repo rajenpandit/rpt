@@ -1,0 +1,12 @@
+CHECK_DATA_TYPE(char)
+CHECK_DATA_TYPE(int)
+CHECK_DATA_TYPE(long)
+CHECK_DATA_TYPE(long int)
+CHECK_DATA_TYPE(float)
+CHECK_DATA_TYPE(double)
+CHECK_DATA_TYPE(long double)
+CHECK_DATA_TYPE(unsigned char)
+CHECK_DATA_TYPE(unsigned int)
+CHECK_DATA_TYPE(unsigned long)
+CHECK_DATA_TYPE(unsigned long int)
+
