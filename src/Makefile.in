@@ -357,13 +357,13 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-LOCAL_LIB = tcp_server/libtcpserver.la thread_pool/libthreadpool.la http_server/libhttpserver.la
+LOCAL_LIB = tcp_server/libtcpserver.la thread_pool/libthreadpool.la http_server/libhttpserver.la util/libutil.la
 lib_LTLIBRARIES = librpt.la
 librpt_la_SOURCES = 
 librpt_la_LIBADD = $(LOCAL_LIB)
 nodist_EXTRA_librpt_la_SOURCES = dummy.cpp
 librpt_la_LDFLAGS = -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
-SUBDIRS = tcp_server thread_pool http_server
+SUBDIRS = tcp_server thread_pool http_server util
 all: all-recursive
 
 .SUFFIXES:

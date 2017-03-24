@@ -42,7 +42,7 @@ AC_CONFIG_FILES([Makefile
                  src/tcp_server/Makefile
                  src/thread_pool/Makefile
 		 src/http_server/Makefile
-		 test/Makefile
+		 src/util/Makefile
 		 ])
 AC_PROG_RANLIB
 AC_OUTPUT

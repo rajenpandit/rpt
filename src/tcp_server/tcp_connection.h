@@ -1,5 +1,5 @@
 #ifndef __TCP_CONNECTION_H__30052016_RAJEN__
-#define __TCP_CONNECTION_H__30052016_RAJEN___
+#define __TCP_CONNECTION_H__30052016_RAJEN__
 
 #include "client_iostream.h"
 #include "epoll_reactor.h"
@@ -75,17 +75,26 @@ public:
 	}	
 public:
 	template<typename T, class... TArgs>
-	T* get_connection(const std::string& ip, int port, TArgs... args);
+	std::shared_ptr<T> get_connection(const std::string& ip, int port, TArgs... args);
 	void release_connection(client_iostream* client);
 public: //functionalities
 	void start(std::shared_ptr<acceptor_base> accept,const endpoint &e,
 			unsigned int max_connection=std::numeric_limits<unsigned int>::max(),
 			bool block=true) noexcept;	
 	void start(bool block=true){
-		std::lock_guard<std::mutex> lk(_mutex);
-		if(_is_running == false){
-			_reactor.run(block);
-			_is_running = true;
+		if(block==false){
+			std::lock_guard<std::mutex> lk(_mutex);
+			if(_is_running == false){
+				_reactor.run(block);
+				_is_running = true;
+			}
+		}
+		else{
+			if(_is_running==false)
+			{
+				_is_running = true;
+				_reactor.run(block);
+			}
 		}
 	}
 	void stop(){
@@ -115,7 +124,7 @@ private:
 };
 
 template<typename T, class... TArgs>
-T* tcp_connection::get_connection(const std::string& ip, int port, TArgs... args){
+std::shared_ptr<T> tcp_connection::get_connection(const std::string& ip, int port, TArgs... args){
 	std::shared_ptr<T> client;
 	std::string key = ip + std::to_string(port) + typeid(T).name();
 	auto it = _client_map.find(key);
@@ -143,7 +152,7 @@ T* tcp_connection::get_connection(const std::string& ip, int port, TArgs... args
 	_reactor.register_descriptor(client,std::bind(&tcp_connection::client_handler,this,std::placeholders::_1,std::placeholders::_2));
 	client->set_id(key);
 	client->set_thread_pool(_threads);
-	return client.get();
+	return client;
 }
 }
 #endif

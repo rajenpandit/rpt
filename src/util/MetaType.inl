@@ -1,3 +1,53 @@
+//--------------------- StrinToType -----------------
+
+template<>
+struct StringToType<int>{
+	int operator() (const std::string& s){
+		return std::stoi(s);
+	}
+};
+template<>
+struct StringToType<long>{
+	long operator() (const std::string& s){
+		return std::stol(s);
+	}
+};
+template<>
+struct StringToType<long long>{
+	long long operator() (const std::string& s){
+		return std::stoll(s);
+	}
+};
+template<>
+struct StringToType<unsigned long>{
+	unsigned long operator() (const std::string& s){
+		return std::stoul(s);
+	}
+};
+template<>
+struct StringToType<unsigned long long>{
+	unsigned long long operator() (const std::string& s){
+		return std::stoull(s);
+	}
+};
+template<>
+struct StringToType<float>{
+	float operator() (const std::string& s){
+		return std::stof(s);
+	}
+};
+template<>
+struct StringToType<double>{
+	double operator() (const std::string& s){
+		return std::stod(s);
+	}
+};
+template<>
+struct StringToType<long double>{
+	long double operator() (const std::string& s){
+		return std::stold(s);
+	}
+};
 //--------------------- MetaType ---------------------
 template<class T>
 struct Type<T,typename std::enable_if_t<std::is_arithmetic<T>::value>>{
@@ -82,7 +132,20 @@ struct MetaType::Assign<MetaType,false>
 		return std::move(val._MetaTypePtr);
 	}
 };
-
+inline
+bool MetaType::set_default(const std::string& name){
+	return _MetaTypePtr->set_default(name);
+}
+inline
+const MetaType& MetaType::operator [] (const std::string& name) const
+{
+	return (*_MetaTypePtr)[name];
+}
+inline
+const MetaType& MetaType::operator [] (std::size_t index) const
+{
+	return (*_MetaTypePtr)[index];
+}
 inline
 MetaType& MetaType::operator [] (const std::string& name)
 {
@@ -94,8 +157,20 @@ MetaType& MetaType::operator [] (std::size_t index)
 	return (*_MetaTypePtr)[index];
 }
 inline
-std::string MetaType::getTypeName() const{
-	return _MetaTypePtr->getTypeName();
+const ObjectType& MetaType::append(const ObjectType& obj)
+{
+	return _MetaTypePtr->append(obj);
+} 
+inline
+const ArrayType& MetaType::append(const ArrayType& arr)
+{
+	return _MetaTypePtr->append(arr);
+}
+
+
+inline
+std::string MetaType::get_type_name() const{
+	return _MetaTypePtr->get_type_name();
 }
 template<class T>
 inline
@@ -117,21 +192,22 @@ void MetaType::operator = (const MetaType& Obj){
 }
 inline
 std::ostream& operator << (std::ostream& os, const MetaType& Obj){
-	os << (*Obj._MetaTypePtr);
+	if(Obj._MetaTypePtr != nullptr)
+		os << (*Obj._MetaTypePtr);
 	return os;
 }
 
 //--------------------- GenericType ---------------------
 template<class T>
 inline
-std::ostream& GenericType<T>::writeTo(std::ostream& os)
+std::ostream& GenericType<T>::write_to(std::ostream& os) const
 {
 	os << _value;
 	return os;
 }
 template<>
 inline
-std::ostream& GenericType<char>::writeTo(std::ostream& os)
+std::ostream& GenericType<char>::write_to(std::ostream& os) const
 {
 	os << "\""<< _value <<"\"";
 	return os;
@@ -140,17 +216,18 @@ std::ostream& GenericType<char>::writeTo(std::ostream& os)
 //--------------------- ObjectType ---------------------
 template<class T>
 inline
-T ObjectType::getHelper<T,true>::operator()(ObjectType* obj,const std::string& name)
+T ObjectType::getHelper<T,true>::operator()(const ObjectType* obj,const std::string& path) const
 {
-	auto pos = name.find(".");
+	auto pos = path.find(".");
 	if( pos!=std::string::npos)
 	{
-		auto it=obj->_Index.find(name.substr(0,pos));
+		const std::string& name = path.substr(0,pos);
+		auto it=obj->_Index.find(name);
 		if(it != obj->_Index.end()){
 			int index = it->second;
 			auto x = dynamic_cast<ObjectType*>( obj->_DataTypes[index].get() );
 			if(x != nullptr)
-				return x->get<T>(name.substr(pos+1));
+				return x->get<T>(path.substr(pos+1));
 		}
 		else{
 			std::cout<<"Invalide Generic Object"<<std::endl;
@@ -159,16 +236,31 @@ T ObjectType::getHelper<T,true>::operator()(ObjectType* obj,const std::string& n
 	}
 	else
 	{
-		auto it=obj->_Index.find(name);
+		auto it=obj->_Index.find(path);
 		if(it != obj->_Index.end()){
 			int index = it->second;
 #			define CHECK_DATA_TYPE(TYPE) \
-			if(obj->_DataTypes[index]->getTypeName() == #TYPE){\
+			if(obj->_DataTypes[index]->get_type_name() == #TYPE){\
 				auto x = dynamic_cast<GenericType<TYPE>*>( obj->_DataTypes[index].get() );\
 				return *x;\
 			}else 
-
 #			include "GenericType.def"				//else 
+			if(obj->_DataTypes[index]->get_type_name() == "StringType")
+			{
+				auto x = dynamic_cast<StringType*>( obj->_DataTypes[index].get() );\
+				std::string s = *x;
+				return StringToType<T>{}(s);\
+			}
+			else if((!std::is_same<T,ObjectType>::value) && 
+					(obj->_DataTypes[index]->get_type_name() == ObjectType::get_type_name())){
+				const MetaType& metaType = obj->_DataTypes[index];
+				auto x = dynamic_cast<ObjectType*>( metaType.get() );
+				if(x != nullptr && (x->_Default >= 0)){
+					return x->get<T>(x->_Default).second;
+				}
+				throw MetaTypeException("Data Type not defined");
+			}
+			else
 			{
 				throw MetaTypeException("Data Type not defined");
 				//: data type not found
@@ -181,20 +273,40 @@ T ObjectType::getHelper<T,true>::operator()(ObjectType* obj,const std::string& n
 		}
 	}
 }
-
 template<class T>
 inline
-T ObjectType::getHelper<T,false>::operator()(ObjectType* obj,const std::string& name)
+T ObjectType::getHelper<T,false>::operator()(const ObjectType* obj,const std::string& path) const
 {
-	auto pos = name.find(".");
+	auto pos = path.find(".");
 	if( pos!=std::string::npos)
 	{
-		auto it=obj->_Index.find(name.substr(0,pos));
+		auto a_pos_start= path.substr(0,pos).find("[");
+		if(a_pos_start == std::string::npos)
+			a_pos_start = pos;
+		const std::string& name=path.substr(0,a_pos_start);
+		auto it=obj->_Index.find(name);
 		if(it != obj->_Index.end()){
-			int index = it->second;
-			auto x = dynamic_cast<ObjectType*>( obj->_DataTypes[index].get() );
-			if(x != nullptr)
-				return x->get<T>(name.substr(pos+1));
+			auto a_pos_end = path.substr(a_pos_start,pos-a_pos_start).find("]");
+			if(a_pos_start != pos && a_pos_end!= std::string::npos){
+				try{
+					int index = std::stoi(path.substr(a_pos_start+1,a_pos_end-(a_pos_start+1)));
+					if(index >= 0){
+						auto x = dynamic_cast<ArrayType*>( obj->_DataTypes[it->second].get() );
+						auto objType = x->get<ObjectType&>(index);
+						return objType.get<T>(path.substr(pos+1));
+					}
+					else
+						throw MetaTypeException("Invalid Index");
+				}catch(...){
+					throw MetaTypeException("Invalid Index");
+				}
+			}
+			else{
+				int index = it->second;
+				auto x = dynamic_cast<ObjectType*>( obj->_DataTypes[index].get() );
+				if(x != nullptr)
+					return x->get<T>(path.substr(pos+1));
+			}
 		}
 		else
 		{
@@ -204,14 +316,43 @@ T ObjectType::getHelper<T,false>::operator()(ObjectType* obj,const std::string& 
 	}
 	else
 	{
+		auto a_pos_start= path.find("[");
+		const std::string& name = path.substr(0,a_pos_start);	
 		auto it=obj->_Index.find(name);
 		if(it != obj->_Index.end()){
-			int index = it->second;
-			auto x = dynamic_cast<typename std::remove_reference_t<typename Type<T>::type>*>( obj->_DataTypes[index].get() );
-			if(x != nullptr)
-				return *x;
-			else
-				throw MetaTypeException("Invalid Type Conversion");
+			auto a_pos_end = path.find("]");
+			if((a_pos_start != std::string::npos) && 
+					(a_pos_end != std::string::npos)){
+				try{
+					int index = std::stoi(path.substr(a_pos_start+1,a_pos_end-(a_pos_start+1)));
+					if(index >= 0){
+						auto x = dynamic_cast<ArrayType*>( obj->_DataTypes[it->second].get() );
+						return x->get<T>(index);
+					}
+					else
+						throw MetaTypeException("Invalid Index");
+				}catch(...){
+					throw MetaTypeException("Invalid Index");
+				}
+
+			}
+			else{
+				int index = it->second;
+				if((!std::is_same<T,ObjectType>::value) && 
+					(obj->_DataTypes[index]->get_type_name() == ObjectType::get_type_name())){
+					const MetaType& metaType = obj->_DataTypes[index];
+					auto x = dynamic_cast<ObjectType*>( metaType.get() );
+					if(x != nullptr && (x->_Default >= 0)){
+						return x->get<T>(x->_Default).second;
+					}
+					throw MetaTypeException("Data Type not defined");
+				}
+				auto x = dynamic_cast<typename std::remove_reference_t<typename Type<T>::type>*>( obj->_DataTypes[index].get() );
+				if(x != nullptr)
+					return *x;
+				else
+					throw MetaTypeException("Invalid Type Conversion");
+			}
 		}
 		else{
 			//Data not found exception
@@ -222,17 +363,25 @@ T ObjectType::getHelper<T,false>::operator()(ObjectType* obj,const std::string& 
 
 template<class T>
 inline
-std::pair<std::string,T> ObjectType::getHelper<T,true>::operator()(ObjectType* obj,int index)
+std::pair<std::string,T> ObjectType::getHelper<T,true>::operator()(const ObjectType* obj,int index) const
 {
 	if(index < obj->_DataTypes.size()){
-		MetaType& metaType = obj->_DataTypes[index];
+		const MetaType& metaType = obj->_DataTypes[index];
 #		define CHECK_DATA_TYPE(TYPE) \
-		if(obj->_DataTypes[index]->getTypeName() == #TYPE){\
+		if(obj->_DataTypes[index]->get_type_name() == #TYPE){\
 			auto x = dynamic_cast<GenericType<TYPE>*>( metaType.get() );\
-			return std::make_pair(metaType.getName(),*x);\
+			return std::make_pair(metaType.get_name(),*x);\
 		}else 
 #		include	"GenericType.def"
-		//else 
+		if((!std::is_same<T,ObjectType>::value) && 
+				(obj->_DataTypes[index]->get_type_name() == ObjectType::get_type_name())){
+			auto x = dynamic_cast<ObjectType*>( metaType.get() );
+			if(x != nullptr && (x->_Default >= 0)){
+				return x->get<T>(x->_Default);
+			}
+			throw MetaTypeException("Data Type not defined");
+		}
+		else 
 		{
 			throw MetaTypeException("Data Type not defined");
 			//: data type not found
@@ -260,14 +409,22 @@ struct make_pair_helper<T,false>{
 };
 template<class T>
 inline
-std::pair<std::string,T> ObjectType::getHelper<T,false>::operator()(ObjectType* obj, int index)
+std::pair<std::string,T> ObjectType::getHelper<T,false>::operator()(const ObjectType* obj, int index) const
 {
 	if(index < obj->_DataTypes.size()){
-		MetaType& metaType = obj->_DataTypes[index];
+		const MetaType& metaType = obj->_DataTypes[index];
+		if((!std::is_same<T,ObjectType>::value) && 
+				(metaType->get_type_name() == ObjectType::get_type_name())){
+			auto x = dynamic_cast<ObjectType*>( metaType.get() );
+			if(x != nullptr && (x->_Default >= 0)){
+				std::cout<<"Default:"<<x->_Default<<std::endl;
+				return x->get<T>(x->_Default);
+			}
+		}
 		auto x = dynamic_cast<typename std::remove_reference_t<typename Type<T>::type>*>( metaType.get() );
 		if(x != nullptr)
 		{
-			return make_pair_helper<T>{}(metaType.getName(),*x);
+			return make_pair_helper<T>{}(metaType.get_name(),*x);
 		}
 		else
 			throw MetaTypeException("Invalid Type Conversion");
@@ -282,33 +439,31 @@ std::pair<std::string,T> ObjectType::getHelper<T,false>::operator()(ObjectType* 
 
 template<class T>
 inline
-T ArrayType::getHelper<T,true>::operator()(ArrayType* obj,int index)
+T ArrayType::getHelper<T,true>::operator()(const ArrayType* obj,int index) const
 {
 	if(index < obj->_DataTypes.size()){
-		MetaType& metaType = obj->_DataTypes[index];
-#				define CHECK_DATA_TYPE(TYPE) \
-		if(obj->_DataTypes[index]->getTypeName() == #TYPE){\
+		const MetaType& metaType = obj->_DataTypes[index];
+#		define CHECK_DATA_TYPE(TYPE) \
+		if(obj->_DataTypes[index]->get_type_name() == #TYPE){\
 			auto x = dynamic_cast<GenericType<TYPE>*>( metaType.get() );\
-			return *x;\
+			return std::make_pair(metaType.get_name(),*x);\
 		}else 
-
-		CHECK_DATA_TYPE(char)
-			CHECK_DATA_TYPE(int)
-			CHECK_DATA_TYPE(long)
-			CHECK_DATA_TYPE(long int)
-			CHECK_DATA_TYPE(float)
-			CHECK_DATA_TYPE(double)
-			CHECK_DATA_TYPE(long double)
-			CHECK_DATA_TYPE(unsigned char)
-			CHECK_DATA_TYPE(unsigned int)
-			CHECK_DATA_TYPE(unsigned long)
-			CHECK_DATA_TYPE(unsigned long int)
-			//else 
-			{
-				throw MetaTypeException("Data Type not defined");
-				//: data type not found
+#		include	"GenericType.def"
+		//else 
+		if((!std::is_same<T,ObjectType>::value) && 
+				(metaType->get_type_name() == ObjectType::get_type_name())){
+			auto x = dynamic_cast<ObjectType*>( metaType.get() );
+			if(x != nullptr && (x->_Default >= 0)){
+				std::cout<<"Default:"<<x->_Default<<std::endl;
+				return x->get<T>(x->_Default);
 			}
-#				undef CHECK_DATA_TYPE
+		}
+		else
+		{
+			throw MetaTypeException("Data Type not defined");
+			//: data type not found
+		}
+#		undef CHECK_DATA_TYPE
 	}	
 	else{
 		//Data not found exception
@@ -318,10 +473,17 @@ T ArrayType::getHelper<T,true>::operator()(ArrayType* obj,int index)
 
 template<class T>
 inline
-T ArrayType::getHelper<T,false>::operator()(ArrayType* obj, int index)
+T ArrayType::getHelper<T,false>::operator()(const ArrayType* obj, int index) const
 {
 	if(index < obj->_DataTypes.size()){
-		MetaType& metaType = obj->_DataTypes[index];
+		const MetaType& metaType = obj->_DataTypes[index];
+		if((!std::is_same<T,ObjectType>::value) && (metaType->get_type_name() == ObjectType::get_type_name())){
+			auto x = dynamic_cast<ObjectType*>( metaType.get() );
+			if(x != nullptr && (x->_Default >= 0)){
+				std::cout<<"Default:"<<x->_Default<<std::endl;
+				return x->get<T>(x->_Default).second;
+			}
+		}
 		auto x = dynamic_cast<typename std::remove_reference_t<typename Type<T>::type>*>( metaType.get() );
 		if(x != nullptr)
 			return *x;

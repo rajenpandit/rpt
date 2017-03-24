@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <cstring>
+#include <arpa/inet.h>
 using namespace rpt;
 bool tcp_socket::create(int port){
 	return create(port,NULL);
@@ -60,6 +61,14 @@ bool tcp_socket::accept(socket_base &socket){
 					sbuf, sizeof sbuf,NI_NUMERICHOST | NI_NUMERICSERV) != 0){
 			return false;
 		}
+		char ipstr[INET6_ADDRSTRLEN];
+		struct sockaddr_in *s = (struct sockaddr_in *)&in_addr;
+		inet_ntop(AF_INET, &s->sin_addr, ipstr, sizeof ipstr);
+		std::string client_addr(ipstr);
+		client_addr.append(":");
+		client_addr.append(std::to_string(ntohs(s->sin_port)));
+		client_socket._client_addr = client_addr;
+		
 		client_socket._fd = infd;
 		client_socket._is_connected = true;
 		return true;
@@ -92,4 +101,7 @@ bool tcp_socket::close(){
 		return false;
 	_is_connected=false;	
 	return true;
+}
+const std::string& tcp_socket::get_client_addr() const{
+	return _client_addr;
 }

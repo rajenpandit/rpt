@@ -8,9 +8,15 @@
 #include <type_traits>
 #include <vector>
 #include <execinfo.h>
+#include "utils.h"
 namespace rpt{
 ///helper type for identifier, used in get call
-using pair_t = std::pair<std::string,int>;
+template<class T>
+using element_t = std::pair<std::string,T>;
+
+template<class T>
+struct StringToType;
+
 template<class T, class=void>
 struct Type;
 
@@ -18,6 +24,8 @@ template<class T, class=void>
 struct Node;
 
 class MetaTypeImpl; /// forward declaration
+class ObjectType;
+class ArrayType;
 
 
 
@@ -37,7 +45,7 @@ private:
 class MetaType
 {
 public:
-	MetaType(){}
+	MetaType():_MetaTypePtr(nullptr){}
 	MetaType(const std::string& node_name, std::unique_ptr<MetaTypeImpl> ptr) : 
 		_NodeName(node_name),_MetaTypePtr(std::move(ptr)){
 	}
@@ -72,27 +80,33 @@ public:
 		_MetaTypePtr=Assign<typename Node<T>::type>().makeMetaTypePtr(val);
 		return *this;
 	}
-	std::unique_ptr<MetaTypeImpl>& operator * (){
+	const std::unique_ptr<MetaTypeImpl>& operator * () const{
 		return _MetaTypePtr;
 	}
 
-	std::unique_ptr<MetaTypeImpl>& operator -> (){
+	const std::unique_ptr<MetaTypeImpl>& operator -> () const{
 		return _MetaTypePtr;
 	}
 
+	const MetaType& operator [] (const std::string& name) const;
+	const MetaType& operator [] (std::size_t index) const;
 	MetaType& operator [] (const std::string& name);
 	MetaType& operator [] (std::size_t index);
+	
+	const ObjectType& append(const ObjectType& obj);
+	const ArrayType& append(const ArrayType& obj);
 	template<class T>
 	void push_back(T val);
 	template<class T>
 	void push_back(const std::string&,T val);
-	MetaTypeImpl* get(){
+	bool set_default(const std::string& name);
+	MetaTypeImpl* get() const{
 		return _MetaTypePtr.get();
 	}
-	std::string getName() const{
+	std::string get_name() const{
 		return _NodeName;
 	}
-	std::string getTypeName() const;
+	std::string get_type_name() const;
 	friend std::ostream& operator << (std::ostream& os, const MetaType& Obj);
 private:
 	std::string _NodeName;
@@ -112,26 +126,47 @@ public:
 		if(status == 0)
 			_typeName = res.get();
 	}
+public:
+        virtual void clear(){
+        }
+	virtual bool set_default(const std::string& name) {
+		throw MetaTypeException("Error: [Type mismatch] Destination is not an ObjectType: Accesing " + get_type_name());
+	}
 public://operators
+
+	virtual const MetaType& operator [] (const std::string& name) const{
+		throw MetaTypeException("Error: [Type mismatch] Destination is not an ObjectType: Accesing " + get_type_name());
+	}
+	virtual const MetaType& operator [] (std::size_t index) const{
+		throw MetaTypeException("Error: [Type mismatch] Destination is not an ArrayType: Accesing " + get_type_name());
+	}
 	virtual MetaType& operator [] (const std::string& name){
-		throw MetaTypeException("Error: [Type mismatch] Destination is not an ObjectType");
+		throw MetaTypeException("Error: [Type mismatch] Destination is not an ObjectType: Accesing " + get_type_name());
 	}
 	virtual MetaType& operator [] (std::size_t index){
-		throw MetaTypeException("Error: [Type mismatch] Destination is not an ArrayType");
+		throw MetaTypeException("Error: [Type mismatch] Destination is not an ArrayType: Accesing " + get_type_name());
 	}
 	virtual void push_back(std::unique_ptr<MetaTypeImpl>&& MetaTypePtr){
-		throw MetaTypeException("Error: [Type mismatch] Destination is not an ArrayType");
+		throw MetaTypeException("Error: [Type mismatch] Destination is not an ArrayType: Accesing " + get_type_name());
 	}
+
+	virtual const ObjectType& append(const ObjectType& obj){
+		throw MetaTypeException("Error: [Type mismatch] Destination is not an ObjectType: Accesing " + get_type_name());
+	}
+	virtual const ArrayType& append(const ArrayType& arr){
+		throw MetaTypeException("Error: [Type mismatch] Destination is not an ArrayType: Accesing " + get_type_name());
+	}
+
 	virtual std::unique_ptr<MetaTypeImpl> clone() = 0;
-	virtual std::ostream& writeTo(std::ostream& os)=0;;
+	virtual std::ostream& write_to(std::ostream& os) const =0;
 public:
-	const std::string& getTypeName() const
+	const std::string& get_type_name() const
 	{
 		return _typeName;
 	}
-	friend std::ostream& operator << (std::ostream& os, MetaTypeImpl& Obj)
+	friend std::ostream& operator << (std::ostream& os, const MetaTypeImpl& Obj)
 	{
-		return Obj.writeTo(os);
+		return Obj.write_to(os);
 	}
 protected:
 	std::string _typeName;
@@ -150,7 +185,7 @@ public:
 	std::unique_ptr<MetaTypeImpl> clone() override{
 		return std::make_unique<GenericType>(_value);
 	}
-	std::ostream& writeTo(std::ostream& os);
+	std::ostream& write_to(std::ostream& os) const override;
 	
 public://operators
 	operator T(){
@@ -178,7 +213,7 @@ public:
 		return std::make_unique<StringType>(_value);
 	}
 
-	std::ostream& writeTo(std::ostream& os) override{
+	std::ostream& write_to(std::ostream& os) const  override{
 		os <<"\""<< _value<<"\"";
 		return os;
 	}
@@ -212,7 +247,7 @@ public:
 		return std::make_unique<ReferenceType<std::reference_wrapper<T>>>(_value);
 	}
 
-	std::ostream& writeTo(std::ostream& os) override{
+	std::ostream& write_to(std::ostream& os) const override{
 		os <<"\""<< (T)_value<<"\"";
 		return os;
 	}
@@ -236,33 +271,57 @@ private:
 class ObjectType : public MetaTypeImpl
 {
 public:
-	ObjectType() : MetaTypeImpl(this){
+	static std::string get_type_name(){
+		return utils::type<ObjectType>::name();
+	}
+	ObjectType() : MetaTypeImpl(this),_Default(-1){
+	}
+	template<class T>
+	ObjectType(const std::string& name, T val) : MetaTypeImpl(this), _Default(-1){
+		(*this)[name]=val;
 	}
 	ObjectType(const ObjectType& Obj) : MetaTypeImpl(this){
 		(*this) = Obj;
 	}
 	template<class T>
-	ObjectType(const std::string& name, T val) : MetaTypeImpl(this){
-		(*this)[name]=val;
-	}
-	template<class T>
-	ObjectType(std::initializer_list<std::pair<std::string,T>> list) : MetaTypeImpl(this){
+	ObjectType(std::initializer_list<std::pair<std::string,T>> list) : MetaTypeImpl(this), _Default(-1){
 		for(auto l : list){
 			(*this)[l.first]=l.second;
 		}
 	}
 public:
+	bool set_default(const std::string& name) override{
+		auto it=_Index.find(name);
+		if(it != _Index.end()){
+			_Default = it->second;
+			return true;
+		}
+		return false;
+	}
+        void clear() override{
+                _Index.clear();
+                _DataTypes.clear();     
+        }
 	std::unique_ptr<MetaTypeImpl> clone() override{
 		return std::make_unique<ObjectType>(*this);	
 	}
-	std::ostream& writeTo(std::ostream& os) override;
+	std::ostream& write_to(std::ostream& os) const  override;
 public: //operators
+	const MetaType& operator [](const std::string& name) const override;
+	const MetaType& operator [](std::size_t index) const override
+	{
+		return _DataTypes[index];
+	}
 	MetaType& operator [](const std::string& name) override;
 	MetaType& operator [](std::size_t index) override
 	{
 		return _DataTypes[index];
 	}
 	//MetaType& operator [](std::size_t index) override;
+	/**
+		Merge another object with this.	
+	 */
+	virtual const ObjectType& append(const ObjectType& obj) override;
 
 private:
 	//-------------- get Helper ---------------------
@@ -271,30 +330,30 @@ private:
 
 	template<typename T>
 		struct getHelper<T,true>{
-			T operator()(ObjectType* obj,const std::string& name);
-			std::pair<std::string,T> operator()(ObjectType* obj,int index);
+			T operator()(const ObjectType* obj,const std::string& name) const;
+			std::pair<std::string,T> operator()(const ObjectType* obj,int index) const;
 		};
 
 	template<typename T>
 		struct getHelper<T,false>{
-			T operator()(ObjectType* obj,const std::string& name);
-			std::pair<std::string,T> operator()(ObjectType* obj,int index);
+			T operator()(const ObjectType* obj,const std::string& name) const;
+			std::pair<std::string,T> operator()(const ObjectType* obj,int index) const;
 		};
 	//-------------------------------------------------
 
 
 public:
 	template<class T>
-	T get(const std::string& name){
+	T get(const std::string& name) const{
 		return getHelper<T>{}(this,name);		
 	}
 	template<class T>
-	std::pair<std::string,T> get(int index){
+	std::pair<std::string,T> get(int index) const{
 		return getHelper<T>{}(this,index);		
 	};
-	friend std::ostream& operator << (std::ostream& os, ObjectType& Obj)
+	friend std::ostream& operator << (std::ostream& os, const ObjectType& Obj)
 	{
-		return Obj.writeTo(os);
+		return Obj.write_to(os);
 	}
 	std::size_t size() const{
 		return _DataTypes.size();
@@ -302,8 +361,14 @@ public:
 private:
 	std::map<std::string,std::size_t> _Index;
 	std::vector<MetaType>  _DataTypes;
+	int _Default;
+friend class ArrayType;
 };
 class ArrayType: public MetaTypeImpl{
+public:
+	static std::string get_type_name(){
+		return utils::type<ArrayType>::name();
+	}
 public:
 	ArrayType() : MetaTypeImpl(this){
 	}
@@ -319,20 +384,23 @@ private:
 
 	template<typename T>
 		struct getHelper<T,true>{
-			T operator()(ArrayType* obj,int index);
+			T operator()(const ArrayType* obj,int index) const;
 		};
 
 	template<typename T>
 		struct getHelper<T,false>{
-			T operator()(ArrayType* obj,int index);
+			T operator()(const ArrayType* obj,int index) const;
 		};
 	//-------------------------------------------------
 public:
 	template<class T>
-	T get(int index){
+	T get(int index) const{
 		return getHelper<T>{}(this,index);		
 	}
 public:
+	void clear() override{
+                _DataTypes.clear();     
+        }
 	std::unique_ptr<MetaTypeImpl> clone() override{
 		return std::make_unique<ArrayType>(*this);	
 	}
@@ -344,7 +412,12 @@ public: //operators
 	void push_back(std::unique_ptr<MetaTypeImpl>&& MetaTypePtr) override{
 		_DataTypes.emplace_back(std::move(MetaTypePtr));
 	}
-	std::ostream& writeTo(std::ostream& os) override;
+	const ArrayType& append(const ArrayType& arr) override{
+		for( auto element : arr._DataTypes ){
+			_DataTypes.push_back(element);	
+		}
+	}
+	std::ostream& write_to(std::ostream& os) const override;
 	std::size_t size() const{
 		return _DataTypes.size();
 	}
@@ -353,6 +426,6 @@ private:
 };
 
 #include "MetaType.inl"
-
 }
+
 #endif

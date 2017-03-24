@@ -20,6 +20,7 @@ public: //NOTE: All virtual function must be inherited by derived class
 	virtual int send(const void *buffer, size_t size, int flags=0) = 0;
 	virtual int receive(void *buffer,size_t size,bool block=true) = 0;
 	virtual bool close() = 0;
+	virtual const std::string& get_client_addr() const = 0;
 	virtual ~socket_base() {}
 public:
 	const int& get_fd(){

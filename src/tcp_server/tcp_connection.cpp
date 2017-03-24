@@ -15,6 +15,7 @@ void tcp_connection::client_handler(std::shared_ptr<fdbase> fdb, unsigned int ev
 	std::shared_ptr<client_iostream> client = std::dynamic_pointer_cast<client_iostream>(fdb);
 	if(client != nullptr){
 		if(events & (EPOLLRDHUP | EPOLLHUP)){
+			client->get_mutex().lock();
 			std::lock_guard<std::mutex> lk(*client, std::adopt_lock);
 			client->close();
 		}
@@ -79,6 +80,7 @@ void tcp_connection::accept_impl(std::shared_ptr<fdbase> fdb,__attribute__((unus
 				}
 				using std::placeholders::_1;
 				using std::placeholders::_2;
+				client->set_id((*client)->get_client_addr());
 				client->set_thread_pool(_threads);
 				client->register_close_handler(std::bind(&tcp_connection::remove_client,this,_1));
 				_reactor.register_descriptor(client,std::bind(&tcp_connection::client_handler,this,_1,_2));

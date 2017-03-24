@@ -55,13 +55,26 @@ public:
 	 * An interface to terminate session with remote client, and close the file descriptor.
 	 */
 	bool close(){
+		if(!_socket->is_connected())
+			return true;
 		for(auto& close_handler : _close_handlers)
 		{
 			close_handler(_socket->get_fd());
 		}
 		_close_handlers.clear();
-		return _socket->close();
+		_socket->close();
+		if(!_socket->is_connected())
+		{
+			return true;;
+		}
 	}
+	/*!
+	 * An interface to get the client address(ip:port).
+	 */
+	const std::string& get_client_addr() const{
+		return _socket->get_client_addr();
+	}
+
 	/*!
 	 * An interface to read data from socket. If data is not available, this function call will be blocked.\n
 	 * If thread_pool object is provided (generally it is set by tcp_connection), then caller thread will 
@@ -150,6 +163,8 @@ protected:
 	 * by using read method or providing a callback function.
 	 */
 	virtual void notify_read(__attribute__((unused)) unsigned int events){
+		if(!_socket->is_connected())
+			return;
 		int fd = _socket->get_fd();
 		while(true){
 			int len=1;
@@ -166,6 +181,10 @@ protected:
 			if(data.empty())
 				break;
 			notify(data);
+			if(!_socket->is_connected())
+			{
+				return;
+			}
 		}
 	}
 	/*!

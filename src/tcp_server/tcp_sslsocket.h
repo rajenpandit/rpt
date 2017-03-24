@@ -1,5 +1,5 @@
 #ifndef __TCP__SSLSOCKET_H_05032016_RAJEN_H__
-#define __TCP_SSLSOCKET_H_05032016_RAJEN_H__
+#define __TCP__SSLSOCKET_H_05032016_RAJEN_H__
 #include "tcp_socket.h"
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -7,29 +7,43 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <openssl/err.h>
 #include <openssl/ssl.h>
+#include <iostream>
 namespace rpt{
 	template <bool T=true>
-	class ssl_init{
-		public:
-			ssl_init(){
-				OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS,NULL);
-				OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS,NULL);
-			}
-			~ssl_init(){
-				OPENSSL_cleanup();
-			}
-			//	public:
-					static ssl_init<T> _init;
-	};
-
+		class ssl_init{
+			public:
+				ssl_init(){
+#                       if OPENSSL_VERSION_NUMBER < 0x10100000L
+					SSL_load_error_strings();
+					SSL_library_init();
+					OpenSSL_add_all_algorithms();
+#                       else
+					OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS,NULL);
+					OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CRYPTO_STRINGS,NULL);
+#                       endif
+				}
+				~ssl_init(){
+#                       if OPENSSL_VERSION_NUMBER < 0x10100000L
+					ERR_free_strings();
+					EVP_cleanup();
+#                       else
+					OPENSSL_cleanup();
+#                       endif
+				}
+		};
 class tcp_sslsocket : public tcp_socket{
-private:
 	
 public:
 	tcp_sslsocket(const std::string& cert_path, const std::string& key_path)
 		: _cert_path(cert_path), _key_path(key_path){
 		_ssl=nullptr;
+		do_init();
+	}
+private:
+	void do_init(){
+		static ssl_init<true> _init;	
 	}
 public:
 	virtual bool accept(socket_base &socket) override;
@@ -41,18 +55,18 @@ private:
         SSL *_ssl;
 	std::string _cert_path;	
 	std::string _key_path;
-//	ssl_init _init;	
 };
-template <>
-ssl_init<true> ssl_init<true>::_init;
-
 inline
 bool tcp_sslsocket::accept(socket_base &socket){
 	if(tcp_socket::accept(socket))
 	{
 		tcp_sslsocket& client_socket = dynamic_cast<tcp_sslsocket&>(socket);
 		SSL_CTX *sslctx = nullptr;
+#	if OPENSSL_VERSION_NUMBER < 0x10100000L
+		sslctx = SSL_CTX_new(SSLv23_method());
+#	else
 		sslctx = SSL_CTX_new( TLS_method());
+#	endif
 		SSL_CTX_set_options(sslctx, SSL_OP_SINGLE_DH_USE);
 		SSL_CTX_use_certificate_file(sslctx, _cert_path.c_str() , SSL_FILETYPE_PEM);
 		SSL_CTX_use_PrivateKey_file(sslctx, _key_path.c_str(), SSL_FILETYPE_PEM);
@@ -78,7 +92,11 @@ bool tcp_sslsocket::connect(){
 	if(tcp_socket::connect()==true)
 	{
 		SSL_CTX *sslctx = nullptr;
+#	if OPENSSL_VERSION_NUMBER < 0x10100000L
+		sslctx = SSL_CTX_new(SSLv23_client_method());
+#	else
 		sslctx = SSL_CTX_new( TLS_client_method() );
+#	endif
 		SSL_CTX_set_options(sslctx, SSL_OP_SINGLE_DH_USE);
 		SSL_CTX_use_certificate_file(sslctx, _cert_path.c_str() , SSL_FILETYPE_PEM);
 		SSL_CTX_use_PrivateKey_file(sslctx, _key_path.c_str(), SSL_FILETYPE_PEM);

@@ -1,5 +1,5 @@
 #ifndef __EPOLL_REACTOR_H__26022016_RAJEN__
-#define __EPOLL_REACTOR_H__26022016_RAJEN___
+#define __EPOLL_REACTOR_H__26022016_RAJEN__
 #include <exception>
 #include <string>
 #include <sstream>
