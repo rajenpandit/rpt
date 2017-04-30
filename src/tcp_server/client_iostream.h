@@ -82,8 +82,8 @@ public:
 	 * If thread_pool object is not set, then caller thread will be put into waiting state untill data is
 	 * available in socket. 
 	 */
-	std::string read(){
-		if(_thread_pool==nullptr){
+	std::string read(bool block_thread=false){
+		if(_thread_pool==nullptr || block_thread){
 			std::unique_lock<std::mutex> lk(_cv_mutex);
 			_cv.wait(lk, [this]{return rcv_condition();});
 			std::string data;
@@ -194,7 +194,7 @@ protected:
 	 * returns true, if condition is not set and there is some data in buffer.
 	 */
 	virtual bool rcv_condition(){
-		return !_data.empty();
+		return (!_data.empty() || (!_socket->is_connected()));
 	}
 	virtual void get_data(std::vector<char>& data){
 		data.insert(data.end(),_data.begin(),_data.end());
@@ -224,6 +224,8 @@ private:
 				}
 			}
 			else{
+				if(_thread_pool!=nullptr)
+					_thread_pool->context_yield_notify();
 				_cv.notify_one();
 				break;
 			}

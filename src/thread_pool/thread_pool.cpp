@@ -5,9 +5,13 @@
 #pragma GCC push_options
 #pragma GCC optimize ("O0")
 using namespace rpt;
+std::mutex thread_pool::context_yield_helper::_mutex;
 thread_pool::thread_pool(int pool_size):
 	_pool_size(pool_size),
 	_task_queue([](const std::shared_ptr<task_base>& lhs, const std::shared_ptr<task_base>& rhs)->bool{
+				return (lhs->get_execution_time_point() > rhs->get_execution_time_point());
+			}),
+	_internal_task_queue([](const std::shared_ptr<task_base>& lhs, const std::shared_ptr<task_base>& rhs)->bool{
 				return (lhs->get_execution_time_point() > rhs->get_execution_time_point());
 			})
 {
@@ -15,6 +19,7 @@ thread_pool::thread_pool(int pool_size):
 		_pool_size=1;
 	_stop_threads=false;
 	_is_started=false;
+	_is_cy_event=false;
 	start();
 }
 void thread_pool::start(){
@@ -32,9 +37,14 @@ void thread_pool::start(){
 void thread_pool::join(){
 	{
 		std::lock_guard<std::mutex> lk(_queue_mutex);
+		if( !_is_started )
+			return;
 		_stop_threads = true;;
 		_is_started = false;
 	}
+	_is_cy_event=true;
+	_cv.notify_one();
+	_is_cy_event=false;
 	_cv.notify_all();
 	for(auto& t : _threads){
 		t.join();
@@ -56,12 +66,17 @@ bool thread_pool::context_yield(std::shared_ptr<context_yield_helper> context_yi
 	return retVal;
 }
 bool thread_pool::context_yield_impl(std::shared_ptr<context_yield_helper> context_yield_data_p){
+	{
+		std::lock_guard<std::mutex> lk(_cy_mutex2);
+		std::this_thread::sleep_for(1ms);
+	}
 	std::shared_ptr<context_yield_helper> context_yield_data = context_yield_data_p;
 	long int x=0, y=0,sp=0,bp=0;
 	PUSH(x,y);
 	GET_PTR(sp,bp);	
 	context_yield_data->lock();
 	if(context_yield_data->get_status() == -1){
+		context_yield_data->unlock();
 		return true;
 	}
 	if(context_yield_data->get_status()==1){
@@ -74,11 +89,12 @@ bool thread_pool::context_yield_impl(std::shared_ptr<context_yield_helper> conte
 	}
 	else if(has_thread_ownership()==false)
 	{
+		context_yield_data->unlock();
 		while(true){
 			if(!(*context_yield_data)())
 			{
 
-				if(!invoke_task(100ms))
+				if(!invoke_task(1ns))
 				{
 					break;
 				}
@@ -97,6 +113,10 @@ bool thread_pool::context_yield_impl(std::shared_ptr<context_yield_helper> conte
 
 		context_yield_data->unlock();
 #ifdef __STACK_IMPL__
+		{
+			std::lock_guard<std::mutex> lk(_cy_mutex2);
+			std::this_thread::sleep_for(1ms);
+		}
 		char* sp;
 		char* bp;
 		char* p=new char[STACK_SIZE];
@@ -107,6 +127,7 @@ bool thread_pool::context_yield_impl(std::shared_ptr<context_yield_helper> conte
 		sp=top_p;
 		SET_PTR(sp,bp);
 #endif
+#if 0
 		add_task(make_task(&thread_pool::check_cy_condition,this));
 		using namespace std::chrono_literals;
 		{
@@ -126,7 +147,53 @@ bool thread_pool::context_yield_impl(std::shared_ptr<context_yield_helper> conte
 				break;
 			}
 		}
+#else
+		using namespace std::chrono_literals;
+		{
+			std::lock_guard<std::mutex> lk(_cy_mutex);	
+			_cy_wait_que.push(context_yield_data);
+			internal_add_task(make_task(&thread_pool::check_cy_condition,this,std::this_thread::get_id()));
+		}
+		while(true){
+			context_yield_data->lock();
+			if(context_yield_data->get_status() == 0 && _stop_threads==false)
+			{
+				{
+					std::unique_lock<std::mutex> lk(_cy_cvmutex);
+					_cv.wait(lk,[this,context_yield_data]{
+							bool result =  ((*context_yield_data)() || 
+								!_task_queue.empty() ||
+								_stop_threads);
+							return result;
+							});
+					_is_cy_event=false;
+				}
+				if(_stop_threads || context_yield_data->get_status()==1)
+				{
+					context_yield_data->set_status(-1);
+					context_yield_data->unlock();
+					break;
+				}
+				if(!_task_queue.empty())
+				{
+					context_yield_data->unlock();
+					if(!invoke_task(10ms))
+					{
+						break;
+					}
+				}
+				else	
+					context_yield_data->unlock();
+			}
+			else{
+				context_yield_data->set_status(-1);
+				context_yield_data->unlock();
+				break;
+			}
+		}
+#endif
 #ifdef __STACK_IMPL__
+		std::lock_guard<std::mutex> lk(_cy_mutex2);
 		GET_PTR(sp,bp);
 		char* bp_temp=reinterpret_cast<char*>(context_yield_data->get_bp());
 		char* sp_temp=bp_temp - (bp-sp);
@@ -140,26 +207,49 @@ bool thread_pool::context_yield_impl(std::shared_ptr<context_yield_helper> conte
 		context_yield_data->set_status(-1);
 		context_yield_data->unlock();
 	}
+	std::lock_guard<std::mutex> lk(_cy_mutex2);
 	POP(x,y);
 	return true;
 }
-void thread_pool::check_cy_condition(){
+void thread_pool::check_cy_condition(std::thread::id tid){
+	if(std::this_thread::get_id() == tid)
+		return;
 	std::shared_ptr<context_yield_helper> cy_data;
 	{
 		std::lock_guard<std::mutex> lk(_cy_mutex);
-		if(!_cy_wait_que.empty())	
+		auto size = _cy_wait_que.size();
+		for(size_t i = 0; i<size; ++i)
 		{
 			cy_data = _cy_wait_que.front();
 			_cy_wait_que.pop();
-			if((*cy_data)()==false){
-				_cy_wait_que.push(cy_data);
+			cy_data->lock();
+			if(cy_data->get_status()==0 )
+			{	
+				if((*cy_data)()==false){
+					cy_data->unlock();
+					_cy_wait_que.push(cy_data);
+					cy_data=nullptr;
+				}
+				else{
+					cy_data->unlock();
+					context_yield_notify(); // notify to check if another event is  present
+					break;  //Continue with this thread
+				}
+			}
+			else{
+				cy_data->unlock();
 				cy_data=nullptr;
 			}
+
 		}
 		if(cy_data==nullptr){
-			add_task(make_task(&thread_pool::check_cy_condition,this));
 			return;
 		}
+
+	}
+	{
+		std::lock_guard<std::mutex> lk(_cy_mutex2);
+		std::this_thread::sleep_for(1ms);
 	}
 	long int sp,si,di,bx,cx;
 	PUSH_REGS(sp,si,di,bx,cx);
@@ -167,6 +257,8 @@ void thread_pool::check_cy_condition(){
 	POP_REGS(sp,si,di,bx,cx);
 }
 void thread_pool::add_task(std::shared_ptr<task_base> task,std::chrono::milliseconds waiting_period){
+	if(!is_started())
+		return;
 	{
 		std::lock_guard<std::mutex> lk(_queue_mutex);
 		task->set_waiting_period(waiting_period);
@@ -174,7 +266,17 @@ void thread_pool::add_task(std::shared_ptr<task_base> task,std::chrono::millisec
 	}
 	_cv.notify_one();
 }
-bool thread_pool::invoke_task(std::chrono::milliseconds waiting_period)
+void thread_pool::internal_add_task(std::shared_ptr<task_base> task,std::chrono::milliseconds waiting_period){
+	if(!is_started())
+		return;
+	{
+		std::lock_guard<std::mutex> lk(_internal_queue_mutex);
+		task->set_waiting_period(waiting_period);
+		_internal_task_queue.push(task);
+	}
+	//_cv.notify_one();
+}
+bool thread_pool::invoke_task(std::chrono::nanoseconds waiting_period)
 {
 	bool is_waiting_defined=false;
 	std::shared_ptr<task_base> t;
@@ -191,7 +293,10 @@ bool thread_pool::invoke_task(std::chrono::milliseconds waiting_period)
 		}
 		else
 		{
-			_cv.wait(lk, [this]{return (!_task_queue.empty() || _stop_threads);});	
+			_cv.wait(lk, [this]{return (!(_task_queue.empty()
+							|| _is_cy_event
+						     )||
+						_stop_threads);});	
 		}
 		std::lock_guard<std::mutex> lkg(_queue_mutex);
 #if 0
@@ -202,7 +307,7 @@ bool thread_pool::invoke_task(std::chrono::milliseconds waiting_period)
 			return false;
 		}
 #else
-		if(_stop_threads && _task_queue.empty()){
+		if(_stop_threads && _task_queue.empty() ){
 			return false;
 		}
 #endif
