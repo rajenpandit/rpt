@@ -157,6 +157,19 @@ MetaType& MetaType::operator [] (std::size_t index)
 	return (*_MetaTypePtr)[index];
 }
 inline
+const MetaType& MetaType::append(const MetaType& mt)
+{
+	if(mt.get_type_name() == utils::type<ObjectType>::name()){
+		const ObjectType& obj = *(static_cast<ObjectType*>(mt._MetaTypePtr.get()));
+		_MetaTypePtr->append(obj);
+	}
+	else if(mt.get_type_name() == utils::type<ArrayType>::name()){
+		const ArrayType& arr = *(static_cast<ArrayType*>(mt._MetaTypePtr.get()));
+		_MetaTypePtr->append(arr);
+	}
+	return *this;	
+}
+inline
 const ObjectType& MetaType::append(const ObjectType& obj)
 {
 	return _MetaTypePtr->append(obj);
@@ -171,6 +184,46 @@ const ArrayType& MetaType::append(const ArrayType& arr)
 inline
 std::string MetaType::get_type_name() const{
 	return _MetaTypePtr->get_type_name();
+}
+
+template<class T>
+inline
+T MetaType::get(const std::string& name) const
+{
+	if(_MetaTypePtr == nullptr)
+		throw MetaTypeException("null pointer exception");
+	if(get_type_name() == utils::type<ObjectType>::name())
+	{
+		return (dynamic_cast<ObjectType*>(_MetaTypePtr.get()))->get<T>(name);
+	}
+	else
+	{
+		throw MetaTypeException("Operation MetaType::get(const std::string&) not supported for type:"+get_type_name());
+	}
+}
+
+template<class T>
+inline
+T MetaType::get(int index) const
+{
+	if(_MetaTypePtr == nullptr)
+		throw MetaTypeException("null pointer exception");
+	if(get_type_name() == utils::type<ArrayType>::name())
+	{
+		return (dynamic_cast<ArrayType*>(_MetaTypePtr.get()))->get<T>(index);
+	}
+	else
+	{
+		throw MetaTypeException("Operation MetaType::get(int) not supported for type:"+get_type_name());
+	}
+}
+inline
+std::size_t MetaType::size() const{
+return _MetaTypePtr->size();
+}
+inline
+void MetaType::push_back(MetaType& val){
+	_MetaTypePtr->push_back(val);
 }
 template<class T>
 inline
@@ -258,11 +311,11 @@ T ObjectType::getHelper<T,true>::operator()(const ObjectType* obj,const std::str
 				if(x != nullptr && (x->_Default >= 0)){
 					return x->get<T>(x->_Default).second;
 				}
-				throw MetaTypeException("Data Type not defined");
+				throw MetaTypeException("Data Type not defined1");
 			}
 			else
 			{
-				throw MetaTypeException("Data Type not defined");
+				throw MetaTypeException("Data Type not defined2");
 				//: data type not found
 			}
 #			undef CHECK_DATA_TYPE
@@ -345,7 +398,7 @@ T ObjectType::getHelper<T,false>::operator()(const ObjectType* obj,const std::st
 					if(x != nullptr && (x->_Default >= 0)){
 						return x->get<T>(x->_Default).second;
 					}
-					throw MetaTypeException("Data Type not defined");
+					throw MetaTypeException("Data Type not defined3");
 				}
 				auto x = dynamic_cast<typename std::remove_reference_t<typename Type<T>::type>*>( obj->_DataTypes[index].get() );
 				if(x != nullptr)
@@ -356,7 +409,7 @@ T ObjectType::getHelper<T,false>::operator()(const ObjectType* obj,const std::st
 		}
 		else{
 			//Data not found exception
-			throw MetaTypeException("Data Type not defined");
+			throw MetaTypeException("Data Type not defined4");
 		}
 	}
 }
@@ -373,17 +426,26 @@ std::pair<std::string,T> ObjectType::getHelper<T,true>::operator()(const ObjectT
 			return std::make_pair(metaType.get_name(),*x);\
 		}else 
 #		include	"GenericType.def"
-		if((!std::is_same<T,ObjectType>::value) && 
+		if(obj->_DataTypes[index]->get_type_name() == utils::type<StringType>::name())
+		{
+			auto x = dynamic_cast<StringType*>( obj->_DataTypes[index].get() );
+			std::string s = *x;
+			//T must be GenericType
+			if(s.empty())
+				s.assign("0");
+			return std::make_pair(metaType.get_name(),static_cast<T>(std::stod(s)));
+		}
+		else if((!std::is_same<T,ObjectType>::value) && 
 				(obj->_DataTypes[index]->get_type_name() == ObjectType::get_type_name())){
 			auto x = dynamic_cast<ObjectType*>( metaType.get() );
 			if(x != nullptr && (x->_Default >= 0)){
 				return x->get<T>(x->_Default);
 			}
-			throw MetaTypeException("Data Type not defined");
+			throw MetaTypeException("Data Type not defined5");
 		}
 		else 
 		{
-			throw MetaTypeException("Data Type not defined");
+			throw MetaTypeException("Data Type not defined6");
 			//: data type not found
 		}
 #		undef CHECK_DATA_TYPE
@@ -431,7 +493,7 @@ std::pair<std::string,T> ObjectType::getHelper<T,false>::operator()(const Object
 	}
 	else{
 		//Data not found exception
-		throw MetaTypeException("Data Type not defined");
+		throw MetaTypeException("Data Type not defined7");
 	}
 }
 
@@ -460,7 +522,7 @@ T ArrayType::getHelper<T,true>::operator()(const ArrayType* obj,int index) const
 		}
 		else
 		{
-			throw MetaTypeException("Data Type not defined");
+			throw MetaTypeException("Data Type not defined8");
 			//: data type not found
 		}
 #		undef CHECK_DATA_TYPE
@@ -492,6 +554,6 @@ T ArrayType::getHelper<T,false>::operator()(const ArrayType* obj, int index) con
 	}
 	else{
 		//Data not found exception
-		throw MetaTypeException("Data Type not defined");
+		throw MetaTypeException("Data Type not defined9");
 	}
 }

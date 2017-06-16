@@ -343,6 +343,7 @@ bool thread_pool::invoke_task(std::chrono::nanoseconds waiting_period)
 		}
 	}
 	catch(std::exception & e){
+		std::cout<<"Excetion during thread execution:"<<e.what()<<std::endl;
 	}
 	return true;
 }

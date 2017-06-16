@@ -93,12 +93,22 @@ public:
 	MetaType& operator [] (const std::string& name);
 	MetaType& operator [] (std::size_t index);
 	
+public:
+		
+	const MetaType& append(const MetaType& obj);
 	const ObjectType& append(const ObjectType& obj);
 	const ArrayType& append(const ArrayType& obj);
+	void push_back(MetaType& val);
+	std::size_t size() const;
 	template<class T>
-	void push_back(T val);
+		void push_back(T val);
 	template<class T>
-	void push_back(const std::string&,T val);
+		void push_back(const std::string&,T val);
+	template<class T>
+		T get(const std::string& name) const;
+	template<class T>
+		T get(int index) const;
+
 	bool set_default(const std::string& name);
 	MetaTypeImpl* get() const{
 		return _MetaTypePtr.get();
@@ -126,6 +136,8 @@ public:
 		if(status == 0)
 			_typeName = res.get();
 	}
+	virtual ~MetaTypeImpl(){
+	}
 public:
         virtual void clear(){
         }
@@ -144,6 +156,12 @@ public://operators
 		throw MetaTypeException("Error: [Type mismatch] Destination is not an ObjectType: Accesing " + get_type_name());
 	}
 	virtual MetaType& operator [] (std::size_t index){
+		throw MetaTypeException("Error: [Type mismatch] Destination is not an ArrayType: Accesing " + get_type_name());
+	}
+	virtual size_t size() const{
+		throw MetaTypeException("Error: [Type mismatch] Destination is not an ArrayType/ObjectType: Accesing " + get_type_name());
+	}
+	virtual void push_back(MetaType& val){
 		throw MetaTypeException("Error: [Type mismatch] Destination is not an ArrayType: Accesing " + get_type_name());
 	}
 	virtual void push_back(std::unique_ptr<MetaTypeImpl>&& MetaTypePtr){
@@ -317,11 +335,15 @@ public: //operators
 	{
 		return _DataTypes[index];
 	}
+	std::size_t size() const override{
+		return _DataTypes.size();
+	}
 	//MetaType& operator [](std::size_t index) override;
 	/**
 		Merge another object with this.	
 	 */
 	virtual const ObjectType& append(const ObjectType& obj) override;
+
 
 private:
 	//-------------- get Helper ---------------------
@@ -354,9 +376,6 @@ public:
 	friend std::ostream& operator << (std::ostream& os, const ObjectType& Obj)
 	{
 		return Obj.write_to(os);
-	}
-	std::size_t size() const{
-		return _DataTypes.size();
 	}
 private:
 	std::map<std::string,std::size_t> _Index;
@@ -409,16 +428,20 @@ public: //operators
 	{
 		return _DataTypes[index];
 	}
+	void push_back(MetaType& val) override{
+		_DataTypes.push_back(val);
+	}
 	void push_back(std::unique_ptr<MetaTypeImpl>&& MetaTypePtr) override{
 		_DataTypes.emplace_back(std::move(MetaTypePtr));
 	}
 	const ArrayType& append(const ArrayType& arr) override{
+		_DataTypes.clear();
 		for( auto element : arr._DataTypes ){
 			_DataTypes.push_back(element);	
 		}
 	}
 	std::ostream& write_to(std::ostream& os) const override;
-	std::size_t size() const{
+	std::size_t size() const override{
 		return _DataTypes.size();
 	}
 private:

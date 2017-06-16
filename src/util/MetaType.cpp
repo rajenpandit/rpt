@@ -69,6 +69,7 @@ const ObjectType& ObjectType::append(const ObjectType& obj){
 	 * - if element is of ObjectType then call recursive append.
 	 * - if source element and destination element type is not matches then replace with source type. 
 	 */
+	this->_Default = obj._Default;
 	for(auto node : obj._Index){
 		auto it = _Index.find(node.first);
 		if(it != _Index.end()){

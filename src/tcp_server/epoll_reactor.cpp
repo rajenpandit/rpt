@@ -9,7 +9,7 @@ bool epoll_reactor::register_descriptor(std::shared_ptr<fdbase> fdb, std::functi
 	int fd=fdb->get_fd();
 
 	{
-//		std::lock_guard<std::mutex> lk(_mutex);
+		std::lock_guard<std::mutex> lk(_mutex);
 		auto it = _callback_map.find(fd);
 		if(it != _callback_map.end()){
 			_callback_map.erase(it);
