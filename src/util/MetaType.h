@@ -1,6 +1,7 @@
 #ifndef __META_TYPE_H__16012017_RAJEN__
 #define __META_TYPE_H__16012017_RAJEN__
 #include <map>
+#include <sstream>
 #include <iostream>
 #include <memory>
 #include <typeinfo>

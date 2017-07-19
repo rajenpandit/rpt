@@ -1,3 +1,4 @@
+#define EXCEPTION_MSG(ss,msg)	ss << __FILE__<<":"<<__LINE__<<" "<<msg; 
 //--------------------- StrinToType -----------------
 
 template<>
@@ -274,7 +275,50 @@ T ObjectType::getHelper<T,true>::operator()(const ObjectType* obj,const std::str
 	auto pos = path.find(".");
 	if( pos!=std::string::npos)
 	{
+		auto a_pos_start= path.substr(0,pos).find("[");
+		if(a_pos_start == std::string::npos)
+			a_pos_start = pos;
+		const std::string& name=path.substr(0,a_pos_start);
+		auto it=obj->_Index.find(name);
+		if(it != obj->_Index.end()){
+			auto a_pos_end = path.substr(a_pos_start,pos-a_pos_start).find("]");
+			if(a_pos_start != pos && a_pos_end!= std::string::npos){
+				try{
+					int index = std::stoi(path.substr(a_pos_start+1,a_pos_end-(a_pos_start+1)));
+					if(index >= 0){
+						auto x = dynamic_cast<ArrayType*>( obj->_DataTypes[it->second].get() );
+						auto objType = x->get<ObjectType&>(index);
+						return objType.get<T>(path.substr(pos+1));
+					}
+					else
+					{
+						std::stringstream ss;
+						EXCEPTION_MSG(ss,"Invalid Index");
+						throw MetaTypeException(ss.str());
+					}
+				}catch(MetaTypeException& e){
+					throw MetaTypeException(e.what());
+					//throw MetaTypeException("Invalid Index");
+				}
+			}
+			else{
+				int index = it->second;
+				auto x = dynamic_cast<ObjectType*>( obj->_DataTypes[index].get() );
+				if(x != nullptr)
+					return x->get<T>(path.substr(pos+1));
+			}
+		}
+		else
+		{
+			std::stringstream ss;
+			EXCEPTION_MSG(ss,"Invalid Object");
+			throw MetaTypeException(ss.str());
+		}
+	}
+#if 0
+	{
 		const std::string& name = path.substr(0,pos);
+		std::cout<<"name:"<<name<<std::endl;
 		auto it=obj->_Index.find(name);
 		if(it != obj->_Index.end()){
 			int index = it->second;
@@ -287,6 +331,7 @@ T ObjectType::getHelper<T,true>::operator()(const ObjectType* obj,const std::str
 			throw MetaTypeException("Invalid Generic Object");
 		}
 	}
+#endif
 	else
 	{
 		auto it=obj->_Index.find(path);
@@ -298,7 +343,7 @@ T ObjectType::getHelper<T,true>::operator()(const ObjectType* obj,const std::str
 				return *x;\
 			}else 
 #			include "GenericType.def"				//else 
-			if(obj->_DataTypes[index]->get_type_name() == "StringType")
+			if(obj->_DataTypes[index]->get_type_name() == utils::type<StringType>::name())
 			{
 				auto x = dynamic_cast<StringType*>( obj->_DataTypes[index].get() );\
 				std::string s = *x;
@@ -349,9 +394,14 @@ T ObjectType::getHelper<T,false>::operator()(const ObjectType* obj,const std::st
 						return objType.get<T>(path.substr(pos+1));
 					}
 					else
-						throw MetaTypeException("Invalid Index");
-				}catch(...){
-					throw MetaTypeException("Invalid Index");
+					{
+						std::stringstream ss;
+						EXCEPTION_MSG(ss,"Invalid Object");
+						throw MetaTypeException(ss.str());
+					}
+				}catch(MetaTypeException& e)
+				{
+					throw MetaTypeException(e.what());
 				}
 			}
 			else{
@@ -363,8 +413,9 @@ T ObjectType::getHelper<T,false>::operator()(const ObjectType* obj,const std::st
 		}
 		else
 		{
-			std::cout<<"Invalid Object"<<std::endl;
-			throw MetaTypeException("Invalid Object");
+			std::stringstream ss;
+			EXCEPTION_MSG(ss,"Invalid Object");
+			throw MetaTypeException(ss.str());
 		}
 	}
 	else
@@ -383,9 +434,13 @@ T ObjectType::getHelper<T,false>::operator()(const ObjectType* obj,const std::st
 						return x->get<T>(index);
 					}
 					else
-						throw MetaTypeException("Invalid Index");
-				}catch(...){
-					throw MetaTypeException("Invalid Index");
+					{
+						std::stringstream ss;
+						EXCEPTION_MSG(ss,"Invalid Index");
+						throw MetaTypeException(ss.str());
+					}
+				}catch(MetaTypeException& e){
+					throw MetaTypeException(e.what());
 				}
 
 			}
@@ -398,18 +453,27 @@ T ObjectType::getHelper<T,false>::operator()(const ObjectType* obj,const std::st
 					if(x != nullptr && (x->_Default >= 0)){
 						return x->get<T>(x->_Default).second;
 					}
-					throw MetaTypeException("Data Type not defined3");
+
+					std::stringstream ss;
+					EXCEPTION_MSG(ss,"Data Type not defined");
+					throw MetaTypeException(ss.str());
 				}
 				auto x = dynamic_cast<typename std::remove_reference_t<typename Type<T>::type>*>( obj->_DataTypes[index].get() );
 				if(x != nullptr)
 					return *x;
 				else
-					throw MetaTypeException("Invalid Type Conversion");
+				{
+					std::stringstream ss;
+					EXCEPTION_MSG(ss,"Invalid Type Conversion");
+					throw MetaTypeException(ss.str());
+				}
 			}
 		}
 		else{
 			//Data not found exception
-			throw MetaTypeException("Data Type not defined4");
+			std::stringstream ss;
+			EXCEPTION_MSG(ss,"Data Type not defined");
+			throw MetaTypeException(ss.str());
 		}
 	}
 }
@@ -441,18 +505,24 @@ std::pair<std::string,T> ObjectType::getHelper<T,true>::operator()(const ObjectT
 			if(x != nullptr && (x->_Default >= 0)){
 				return x->get<T>(x->_Default);
 			}
-			throw MetaTypeException("Data Type not defined5");
+			std::stringstream ss;
+			EXCEPTION_MSG(ss,"Data Type not defined");
+			throw MetaTypeException(ss.str());
 		}
 		else 
 		{
-			throw MetaTypeException("Data Type not defined6");
+			std::stringstream ss;
+			EXCEPTION_MSG(ss,"Data Type not defined");
+			throw MetaTypeException(ss.str());
 			//: data type not found
 		}
 #		undef CHECK_DATA_TYPE
 	}	
 	else{
 		//Data not found exception
-		throw MetaTypeException("Invalid Generic Object");
+		std::stringstream ss;
+		EXCEPTION_MSG(ss,"Invalid Generic Object");
+		throw MetaTypeException(ss.str());
 	}
 }
 template<class T, bool = std::is_reference<typename Type<T>::type>::value>
@@ -479,7 +549,6 @@ std::pair<std::string,T> ObjectType::getHelper<T,false>::operator()(const Object
 				(metaType->get_type_name() == ObjectType::get_type_name())){
 			auto x = dynamic_cast<ObjectType*>( metaType.get() );
 			if(x != nullptr && (x->_Default >= 0)){
-				std::cout<<"Default:"<<x->_Default<<std::endl;
 				return x->get<T>(x->_Default);
 			}
 		}
@@ -489,11 +558,17 @@ std::pair<std::string,T> ObjectType::getHelper<T,false>::operator()(const Object
 			return make_pair_helper<T>{}(metaType.get_name(),*x);
 		}
 		else
-			throw MetaTypeException("Invalid Type Conversion");
+		{
+			std::stringstream ss;
+			EXCEPTION_MSG(ss,"Invalid Type Conversion");
+			throw MetaTypeException(ss.str());
+		}
 	}
 	else{
 		//Data not found exception
-		throw MetaTypeException("Data Type not defined7");
+		std::stringstream ss;
+		EXCEPTION_MSG(ss,"Data Type not defined");
+		throw MetaTypeException(ss.str());
 	}
 }
 
@@ -516,20 +591,23 @@ T ArrayType::getHelper<T,true>::operator()(const ArrayType* obj,int index) const
 				(metaType->get_type_name() == ObjectType::get_type_name())){
 			auto x = dynamic_cast<ObjectType*>( metaType.get() );
 			if(x != nullptr && (x->_Default >= 0)){
-				std::cout<<"Default:"<<x->_Default<<std::endl;
 				return x->get<T>(x->_Default);
 			}
 		}
 		else
 		{
-			throw MetaTypeException("Data Type not defined8");
+			std::stringstream ss;
+			EXCEPTION_MSG(ss,"Data Type not defined");
+			throw MetaTypeException(ss.str());
 			//: data type not found
 		}
 #		undef CHECK_DATA_TYPE
 	}	
 	else{
 		//Data not found exception
-		throw MetaTypeException("Invalid Generic Object");
+		std::stringstream ss;
+		EXCEPTION_MSG(ss,"Invalid Generic Object");
+		throw MetaTypeException(ss.str());
 	}
 }
 
@@ -542,7 +620,6 @@ T ArrayType::getHelper<T,false>::operator()(const ArrayType* obj, int index) con
 		if((!std::is_same<T,ObjectType>::value) && (metaType->get_type_name() == ObjectType::get_type_name())){
 			auto x = dynamic_cast<ObjectType*>( metaType.get() );
 			if(x != nullptr && (x->_Default >= 0)){
-				std::cout<<"Default:"<<x->_Default<<std::endl;
 				return x->get<T>(x->_Default).second;
 			}
 		}
@@ -550,10 +627,16 @@ T ArrayType::getHelper<T,false>::operator()(const ArrayType* obj, int index) con
 		if(x != nullptr)
 			return *x;
 		else
-			throw MetaTypeException("Invalid Type Conversion");
+		{
+			std::stringstream ss;
+			EXCEPTION_MSG(ss,"Invalid Type Conversion");
+			throw MetaTypeException(ss.str());
+		}
 	}
 	else{
 		//Data not found exception
-		throw MetaTypeException("Data Type not defined9");
+		std::stringstream ss;
+		EXCEPTION_MSG(ss,"Data Type not defined");
+		throw MetaTypeException(ss.str());
 	}
 }
