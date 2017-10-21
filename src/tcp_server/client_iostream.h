@@ -162,6 +162,7 @@ protected:
 	 * here, data will be read from socket and store into buffer memory, which can be retrieved
 	 * by using read method or providing a callback function.
 	 */
+#if 0
 	virtual void notify_read(__attribute__((unused)) unsigned int events){
 		if(!_socket->is_connected())
 			return;
@@ -187,6 +188,53 @@ protected:
 			}
 		}
 	}
+#else
+	virtual void notify_read(__attribute__((unused)) unsigned int events){
+		if(!_socket->is_connected())
+			return;
+		int fd = _socket->get_fd();
+		while(true){
+			int len=1;
+			ioctl(fd, FIONREAD, &len);
+			if(len == 0)
+				break;
+			std::vector<char> data(len);
+			int nbytes=0;
+			if((nbytes = _socket->receive(&data[0], len, false))<=0){
+				_socket->close();
+				break;
+			}
+			data.resize(nbytes);
+			if(!data.empty())
+			{
+				std::lock_guard<std::mutex> lk(_notify_mutex);
+				_data.insert(_data.end(),data.begin(),data.end());
+			}
+			else{
+				break;
+			}
+			if(_thread_pool!=nullptr){
+				_thread_pool->add_task(make_task([status=this->_status](std::function<void()> f){
+							if( *status== 0)
+							return;
+							else
+							{
+							f();
+							}
+							},
+							std::bind(&client_iostream::notify,this)));
+			}
+			else{
+				notify();
+			}
+
+			if(!_socket->is_connected())
+			{
+				return;
+			}
+		}
+	}
+#endif
 	/*!
 	 * rcv_condition function checks for the condition provided by user,
 	 * which tells when data need to be retrieved from buffer. 
@@ -210,8 +258,8 @@ private:
 	 * If given condition is match and callback function is registered,
 	 * then pass the data to user.
 	 */
-	void notify(const std::vector<char>& v){
-		_data.insert(_data.end(),v.begin(),v.end());
+	void notify(){
+		std::lock_guard<std::mutex> lk (_notify_mutex);
 		while(true){
 			if(_notify!=nullptr){
 				if(rcv_condition()){
@@ -245,6 +293,8 @@ private:
 	std::vector<std::function<void(int)>> _close_handlers;
 	std::condition_variable _cv;
 	std::mutex _cv_mutex;
+	std::mutex _notify_mutex;
+	std::shared_ptr<char> _status;
 	friend class tcp_connection;
 };
 }
