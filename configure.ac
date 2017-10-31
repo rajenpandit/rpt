@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.63])
-AC_INIT([librpt], [1.0.0], [rajenpandit@gmail.com])
-m4_define([librpt_lt_current],	[1])
+AC_INIT([librpt], [2.0.0], [rajenpandit@gmail.com])
+m4_define([librpt_lt_current],	[2])
 m4_define([librpt_lt_revision],	[0])
 m4_define([librpt_lt_age],    	[0])
 LT_CURRENT=librpt_lt_current
@@ -43,7 +43,6 @@ AC_CONFIG_FILES([Makefile
                  src/thread_pool/Makefile
 		 src/http_server/Makefile
 		 src/util/Makefile
-		 test/Makefile
 		 ])
 AC_PROG_RANLIB
 AC_OUTPUT

@@ -47,7 +47,7 @@ private:
 	}
 public:
 	virtual bool accept(socket_base &socket) override;
-	virtual bool connect() override;
+	virtual bool connect(long timeout=0) override;
 	virtual int send(const void *buffer, size_t size, int flags) override;
 	virtual int receive(void *buffer,size_t size,bool block=true) override;
 	virtual bool close() override;
@@ -88,8 +88,8 @@ bool tcp_sslsocket::accept(socket_base &socket){
 	return false;
 }
 inline
-bool tcp_sslsocket::connect(){
-	if(tcp_socket::connect()==true)
+bool tcp_sslsocket::connect(long timeout=0){
+	if(tcp_socket::connect(timeout)==true)
 	{
 		SSL_CTX *sslctx = nullptr;
 #	if OPENSSL_VERSION_NUMBER < 0x10100000L
