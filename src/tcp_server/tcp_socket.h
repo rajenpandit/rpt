@@ -15,7 +15,7 @@ public:
 	virtual bool bind(bool reuse_add=true, bool keep_alive=true, bool no_delay=true) override;
 	virtual bool listen(int backlog) override;
 	virtual bool accept(socket_base &socket) override;
-	virtual bool connect() override;
+	virtual bool connect(long timeout=0) override;
 	virtual int send(const void *buffer, size_t size, int flags) override;
 	virtual int receive(void *buffer,size_t size,bool block=true) override;
 	virtual const std::string& get_client_addr() const override;

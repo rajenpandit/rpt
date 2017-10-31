@@ -75,7 +75,7 @@ public:
 	}	
 public:
 	template<typename T, class... TArgs>
-	std::shared_ptr<T> get_connection(const std::string& ip, int port, TArgs... args);
+	std::shared_ptr<T> get_connection(const std::string& ip, int port, long timeout, TArgs... args);
 	void release_connection(client_iostream* client);
 public: //functionalities
 	void start(std::shared_ptr<acceptor_base> accept,const endpoint &e,
@@ -124,7 +124,7 @@ private:
 };
 
 template<typename T, class... TArgs>
-std::shared_ptr<T> tcp_connection::get_connection(const std::string& ip, int port, TArgs... args){
+std::shared_ptr<T> tcp_connection::get_connection(const std::string& ip, int port, long timeout, TArgs... args){
 	std::shared_ptr<T> client;
 	std::string key = ip + std::to_string(port) + typeid(T).name();
 	auto it = _client_map.find(key);
@@ -145,7 +145,7 @@ std::shared_ptr<T> tcp_connection::get_connection(const std::string& ip, int por
 	if(client == nullptr){
 		client = std::make_shared<T>(std::forward<TArgs>(args)...);
 		(*client)->create(port,ip.c_str());
-		if((*client)->connect() == false)
+		if((*client)->connect(timeout) == false)
 			return nullptr;
 	}
 //	client->register_close_handler(std::bind(&tcp_connection::remove_descriptor,this,std::placeholders::_1));

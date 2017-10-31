@@ -77,9 +77,46 @@ bool tcp_socket::accept(socket_base &socket){
 		return false;
 	}	
 }
-bool tcp_socket::connect(){
-	if(::connect(_fd,_addrinfo.ai_addr,_addrinfo.ai_addrlen) == -1){
-		return false;
+bool tcp_socket::connect(long timeout){
+	if(timeout > 0)
+	{
+		if(!set_block_state(false))
+			return false;
+	}
+	int status = ::connect(_fd,_addrinfo.ai_addr,_addrinfo.ai_addrlen);
+	if( status == -1 )
+	{
+		if ( errno != EINPROGRESS )
+			return false;
+		if(timeout > 0)
+		{
+			fd_set set;
+			FD_ZERO(&set);
+			FD_SET(_fd, &set);
+			int t=0;
+			for(t=0; t<timeout ; ++t){
+				struct timeval tv;
+				int error;
+				socklen_t len = sizeof (error);
+				tv.tv_sec = 1;
+				tv.tv_usec = 0;
+				int res=select(FD_SETSIZE,NULL,&set, NULL, &tv);
+				if(res != 0)
+				{
+					if(getsockopt(_fd,SOL_SOCKET,SO_ERROR,&error,&len) == -1 )
+						return false;
+					if(error == 0)
+						break;
+					else
+						return false;
+				}
+			}
+			if(t == timeout)
+				return false;
+		}
+		else{
+			return false;
+		}
 	}
 	_is_connected = true;
 	return true;

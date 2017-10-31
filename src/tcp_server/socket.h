@@ -54,8 +54,8 @@ public: //NOTE: All  function must be inherited by derived class
 	bool accept(socket &socket){
 		return _socket->accept(*socket);
 	}
-	bool connect(){
-		return _socket->connect();
+	bool connect(long timeout=0){
+		return _socket->connect(long timeout);
 	}
 	int send(const void *buffer, size_t size, int flags=0){
 		return _socket->send(buffer,size,flags);
