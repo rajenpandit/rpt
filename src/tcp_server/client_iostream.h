@@ -24,6 +24,7 @@ public:
 	client_iostream(std::unique_ptr<socket_base> soc,
 			std::function<void(const std::vector<char>& data)> notify_function=nullptr) : 
 		fdbase(soc->get_fd()),_socket(std::move(soc)),_notify(notify_function){
+		_status = std::make_shared<char>(1);
 	}
 	client_iostream(const client_iostream&) = delete;
 	void operator = (const client_iostream&) = delete;
@@ -55,6 +56,7 @@ public:
 	 * An interface to terminate session with remote client, and close the file descriptor.
 	 */
 	bool close(){
+		*_status=0;
 		if(!_socket->is_connected())
 			return true;
 		for(auto& close_handler : _close_handlers)
