@@ -276,7 +276,8 @@ private:
 			else{
 				if(_thread_pool!=nullptr)
 					_thread_pool->context_yield_notify();
-				_cv.notify_one();
+				else
+					_cv.notify_one();
 				break;
 			}
 		}
