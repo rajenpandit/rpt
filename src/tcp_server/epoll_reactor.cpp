@@ -16,7 +16,8 @@ bool epoll_reactor::register_descriptor(std::shared_ptr<fdbase> fdb, std::functi
 		}
 		auto call_back = std::make_shared<epoll_call_back>(fdb,call_back_fun);
 		_callback_map.emplace(fd,call_back);
-		event.data.ptr = call_back.get();
+		//event.data.ptr = call_back.get();
+		event.data.fd = fd;
 	}
 	event.events = EPOLLIN | EPOLLET | EPOLLRDHUP;
 	s = epoll_ctl (_efd, EPOLL_CTL_ADD, fd, &event);
@@ -60,12 +61,27 @@ void epoll_reactor::run_impl(){
 #endif
 		for (int i = 0; i < n; i++)
 		{
+/*
 			epoll_call_back* epoll_call_back_p = static_cast<epoll_call_back*>(events[i].data.ptr);
 			int fd = epoll_call_back_p->get_fd()->get_fd();
 			(*epoll_call_back_p)(events[i].events);
+*/
+			int fd = events[i].data.fd;
+			std::shared_ptr<epoll_call_back> call_back_ptr;
+			{
+				std::lock_guard<std::mutex> lk(_mutex);
+				auto it = _callback_map.find(fd);
+				if(it != _callback_map.end()){
+					call_back_ptr = it->second;
+				}
+			}
+			if(call_back_ptr)
+				(*call_back_ptr)(events[i].events);
+/*
 			if(events[i].events & (EPOLLRDHUP | EPOLLHUP)){
 				remove_descriptor(fd);
 			}
+*/
 		}
 		if(_is_running == false){
 			free(events);

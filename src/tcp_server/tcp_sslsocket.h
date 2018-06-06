@@ -88,7 +88,7 @@ bool tcp_sslsocket::accept(socket_base &socket){
 	return false;
 }
 inline
-bool tcp_sslsocket::connect(long timeout=0){
+bool tcp_sslsocket::connect(long timeout){
 	if(tcp_socket::connect(timeout)==true)
 	{
 		SSL_CTX *sslctx = nullptr;

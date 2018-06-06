@@ -59,7 +59,7 @@ public:
 		stop();
 	}
 public:
-	void remove_client(int fd);
+	void remove_client(bool is_server, int fd);
 	void remove_descriptor(int fd);
 	void client_handler(std::shared_ptr<fdbase> fdb, unsigned int events);	
 	void accept(std::shared_ptr<fdbase> fdb, unsigned int events);
@@ -125,6 +125,7 @@ private:
 
 template<typename T, class... TArgs>
 std::shared_ptr<T> tcp_connection::get_connection(const std::string& ip, int port, long timeout, TArgs... args){
+	static auto close_handler_callback = std::bind(&tcp_connection::remove_client,this,false,std::placeholders::_1);
 	std::shared_ptr<T> client;
 	std::string key = ip + std::to_string(port) + typeid(T).name();
 	auto it = _client_map.find(key);
@@ -148,7 +149,7 @@ std::shared_ptr<T> tcp_connection::get_connection(const std::string& ip, int por
 		if((*client)->connect(timeout) == false)
 			return nullptr;
 	}
-//	client->register_close_handler(std::bind(&tcp_connection::remove_descriptor,this,std::placeholders::_1));
+	client->register_close_handler(close_handler_callback);
 	_reactor.register_descriptor(client,std::bind(&tcp_connection::client_handler,this,std::placeholders::_1,std::placeholders::_2));
 	client->set_id(key);
 	client->set_thread_pool(_threads);

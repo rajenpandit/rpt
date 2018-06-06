@@ -4,8 +4,9 @@
 #include <experimental/string_view>
 #include <chrono>
 using namespace rpt;
-void tcp_connection::remove_client(__attribute__((unused)) int fd){
-	++_max_connection;
+void tcp_connection::remove_client(bool is_server,__attribute__((unused)) int fd){
+	if(is_server)
+		++_max_connection;
 	_reactor.remove_descriptor(fd); //moved to epoll_reactor
 }
 /* 
@@ -82,7 +83,7 @@ void tcp_connection::accept_impl(std::shared_ptr<fdbase> fdb,__attribute__((unus
 				using std::placeholders::_2;
 				client->set_id((*client)->get_client_addr());
 				client->set_thread_pool(_threads);
-				client->register_close_handler(std::bind(&tcp_connection::remove_client,this,_1));
+				client->register_close_handler(std::bind(&tcp_connection::remove_client,this,true,_1));
 				_reactor.register_descriptor(client,std::bind(&tcp_connection::client_handler,this,_1,_2));
 				_acceptor->notify_accept(client, acceptor_base::ACCEPT_SUCCESS);
 				--_max_connection;

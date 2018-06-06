@@ -2,9 +2,9 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.63])
-AC_INIT([librpt], [2.0.0], [rajenpandit@gmail.com])
+AC_INIT([librpt], [2.0.2], [rajenpandit@gmail.com])
 m4_define([librpt_lt_current],	[2])
-m4_define([librpt_lt_revision],	[0])
+m4_define([librpt_lt_revision],	[2])
 m4_define([librpt_lt_age],    	[0])
 LT_CURRENT=librpt_lt_current
 AC_SUBST(LT_CURRENT)

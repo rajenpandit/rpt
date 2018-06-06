@@ -16,8 +16,7 @@
 namespace rpt{
 class http_connection : public buffered_client_iostream,
 	public virtual http_servlet_request,
-	public virtual http_servlet_response,
-	public std::enable_shared_from_this<http_connection>
+	public virtual http_servlet_response
 {
 	public:
 		http_connection(const std::shared_ptr<socket_factory>& sf) :
@@ -31,8 +30,11 @@ class http_connection : public buffered_client_iostream,
 		virtual bool write_to_stream(const void* data, size_t size) override;
 		virtual const std::string& get_client_addr() const override;
 	public:
+		std::shared_ptr<http_connection> get_shared_from_this(){
+			return std::dynamic_pointer_cast<http_connection>(shared_from_this());
+		}
 		std::shared_ptr<http_request> get_request(){
-			return shared_from_this();
+			return get_shared_from_this();
 		}
 		std::shared_ptr<http_response> get_response(){
 			if(_thread_pool==nullptr){
@@ -43,7 +45,7 @@ class http_connection : public buffered_client_iostream,
 				_thread_pool->context_yield([this]{return _resrecvd;});
 			}
 			_resrecvd = false;
-			return shared_from_this();
+			return get_shared_from_this();
 		}
 		void register_callback(std::function<void(std::shared_ptr<http_servlet_request>,
 					std::shared_ptr<http_servlet_response>)> callback){

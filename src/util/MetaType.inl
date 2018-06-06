@@ -287,15 +287,18 @@ T ObjectType::getHelper<T,true>::operator()(const ObjectType* obj,const std::str
 					int index = std::stoi(path.substr(a_pos_start+1,a_pos_end-(a_pos_start+1)));
 					if(index >= 0){
 						auto x = dynamic_cast<ArrayType*>( obj->_DataTypes[it->second].get() );
-						auto objType = x->get<ObjectType&>(index);
-						return objType.get<T>(path.substr(pos+1));
+						if(x != nullptr){
+							auto objType = x->get<ObjectType&>(index);
+							return objType.get<T>(path.substr(pos+1));
+						}
+						else if(index==0 && obj->_CheckArray){
+							obj->_CheckArray = false;
+							return obj->get<T>(name + path.substr(pos)); //remove [0] sbuscript
+						}
 					}
-					else
-					{
-						std::stringstream ss;
-						EXCEPTION_MSG(ss,"Invalid Index");
-						throw MetaTypeException(ss.str());
-					}
+					std::stringstream ss;
+					EXCEPTION_MSG(ss,"Invalid Index");
+					throw MetaTypeException(ss.str());
 				}catch(MetaTypeException& e){
 					throw MetaTypeException(e.what());
 					//throw MetaTypeException("Invalid Index");
@@ -306,14 +309,13 @@ T ObjectType::getHelper<T,true>::operator()(const ObjectType* obj,const std::str
 				auto x = dynamic_cast<ObjectType*>( obj->_DataTypes[index].get() );
 				if(x != nullptr)
 					return x->get<T>(path.substr(pos+1));
+				else
+					return obj->get<T>(name + "[0]"+ path.substr(pos));		
 			}
 		}
-		else
-		{
-			std::stringstream ss;
-			EXCEPTION_MSG(ss,"Invalid Object");
-			throw MetaTypeException(ss.str());
-		}
+		std::stringstream ss;
+		EXCEPTION_MSG(ss,"Invalid Object");
+		throw MetaTypeException(ss.str());
 	}
 #if 0
 	{
@@ -334,22 +336,92 @@ T ObjectType::getHelper<T,true>::operator()(const ObjectType* obj,const std::str
 #endif
 	else
 	{
+#if 1
+		auto a_pos_start= path.find("[");
+		const std::string& name = path.substr(0,a_pos_start);	
+		auto it=obj->_Index.find(name);
+		if(it != obj->_Index.end()){
+			auto a_pos_end = path.find("]");
+			if((a_pos_start != std::string::npos) && 
+					(a_pos_end != std::string::npos)){
+				try{
+					int index = std::stoi(path.substr(a_pos_start+1,a_pos_end-(a_pos_start+1)));
+					if(index >= 0){
+						auto x = dynamic_cast<ArrayType*>( obj->_DataTypes[it->second].get() );
+						return x->get<T>(index);
+					}
+					else
+					{
+						std::stringstream ss;
+						EXCEPTION_MSG(ss,"Invalid Index");
+						throw MetaTypeException(ss.str());
+					}
+				}catch(MetaTypeException& e){
+					throw MetaTypeException(e.what());
+				}
+
+			}
+			else
+			{
+				int index = it->second;
+#			define CHECK_DATA_TYPE(TYPE) \
+				if(obj->_DataTypes[index]->get_type_name() == #TYPE){\
+					auto x = dynamic_cast<GenericType<TYPE>*>( obj->_DataTypes[index].get() );\
+					return *x;\
+				}else 
+#			include "GenericType.def"				//else 
+				if(obj->_DataTypes[index]->get_type_name() == utils::type<StringType>::name())
+				{
+					auto x = dynamic_cast<StringType*>( obj->_DataTypes[index].get() );\
+						 std::string s = *x;
+					return StringToType<T>{}(s);
+				}
+				else if((!std::is_same<T,ObjectType>::value) && 
+						(obj->_DataTypes[index]->get_type_name() == ObjectType::get_type_name())){
+					const MetaType& metaType = obj->_DataTypes[index];
+					auto x = dynamic_cast<ObjectType*>( metaType.get() );
+					if(x != nullptr && (x->_Default >= 0)){
+						return x->get<T>(x->_Default).second;
+					}
+					throw MetaTypeException("Data Type not defined1");
+				}
+				/**
+				 * If path is refering to an ArrayType, but path doesnt contain array subscript [], 
+				 * allow user to access 0th index i.e ArrayType[0].
+				 */
+				else if(obj->_DataTypes[index]->get_type_name() == ArrayType::get_type_name()){
+					return obj->get<T>(path+"[0]");
+				}
+				else
+				{
+					throw MetaTypeException("Data Type not defined2");
+					//: data type not found
+				}
+#			undef CHECK_DATA_TYPE
+			}
+		}	
+#else
+
 		auto it=obj->_Index.find(path);
 		if(it != obj->_Index.end()){
 			int index = it->second;
-#			define CHECK_DATA_TYPE(TYPE) \
+#                       define CHECK_DATA_TYPE(TYPE) \
 			if(obj->_DataTypes[index]->get_type_name() == #TYPE){\
 				auto x = dynamic_cast<GenericType<TYPE>*>( obj->_DataTypes[index].get() );\
 				return *x;\
 			}else 
-#			include "GenericType.def"				//else 
+#                       include "GenericType.def"                               //else 
 			if(obj->_DataTypes[index]->get_type_name() == utils::type<StringType>::name())
 			{
 				auto x = dynamic_cast<StringType*>( obj->_DataTypes[index].get() );\
-				std::string s = *x;
+					 std::string s = *x;
 				return StringToType<T>{}(s);\
 			}
-			else if((!std::is_same<T,ObjectType>::value) && 
+			/**
+			 * Requested type is Generic Type, but path is refering to an object.
+			 * Check for default field, if configured. If not, then throw error.
+			 */
+			else if((!std::is_same<T,ObjectType>::value) &&
 					(obj->_DataTypes[index]->get_type_name() == ObjectType::get_type_name())){
 				const MetaType& metaType = obj->_DataTypes[index];
 				auto x = dynamic_cast<ObjectType*>( metaType.get() );
@@ -358,14 +430,29 @@ T ObjectType::getHelper<T,true>::operator()(const ObjectType* obj,const std::str
 				}
 				throw MetaTypeException("Data Type not defined1");
 			}
+			/**
+			 * If path is refering to an ArrayType, but path doesnt contain array subscript [], 
+			 * allow user to access 0th index i.e ArrayType[0].
+			 */
+			else if(obj->_DataTypes[index]->get_type_name() == ArrayType::get_type_name()){
+				obj->get<T>(path+"[0]");
+			}
 			else
 			{
 				throw MetaTypeException("Data Type not defined2");
 				//: data type not found
 			}
-#			undef CHECK_DATA_TYPE
-		}	
+#                       undef CHECK_DATA_TYPE
+		}
+#endif
 		else{
+#if 0
+			//This is not ObjectType, need to check if [0] is appended then provide access by removing [0]
+			auto pos = path.find("[0]");
+			if(pos != std::string::npos){
+				return obj->get<T>(path.substr(0,pos));
+			}
+#endif
 			//Data not found exception
 			throw MetaTypeException("Invalid Generic Object");
 		}
@@ -390,8 +477,14 @@ T ObjectType::getHelper<T,false>::operator()(const ObjectType* obj,const std::st
 					int index = std::stoi(path.substr(a_pos_start+1,a_pos_end-(a_pos_start+1)));
 					if(index >= 0){
 						auto x = dynamic_cast<ArrayType*>( obj->_DataTypes[it->second].get() );
-						auto objType = x->get<ObjectType&>(index);
-						return objType.get<T>(path.substr(pos+1));
+						if(x != nullptr){
+							auto objType = x->get<ObjectType&>(index);
+							return objType.get<T>(path.substr(pos+1));
+						}
+						else if(index==0 && obj->_CheckArray){
+							obj->_CheckArray = false;
+							return obj->get<T>(name + path.substr(pos)); //remove [0] subscript
+						}
 					}
 					else
 					{
@@ -409,6 +502,8 @@ T ObjectType::getHelper<T,false>::operator()(const ObjectType* obj,const std::st
 				auto x = dynamic_cast<ObjectType*>( obj->_DataTypes[index].get() );
 				if(x != nullptr)
 					return x->get<T>(path.substr(pos+1));
+				else
+					return obj->get<T>(name + "[0]"+ path.substr(pos));		
 			}
 		}
 		else
@@ -431,7 +526,12 @@ T ObjectType::getHelper<T,false>::operator()(const ObjectType* obj,const std::st
 					int index = std::stoi(path.substr(a_pos_start+1,a_pos_end-(a_pos_start+1)));
 					if(index >= 0){
 						auto x = dynamic_cast<ArrayType*>( obj->_DataTypes[it->second].get() );
-						return x->get<T>(index);
+						if(x != nullptr)
+							return x->get<T>(index);
+						else if(index==0 && obj->_CheckArray){
+							obj->_CheckArray = false;
+							return obj->get<T>(name); //remove [0] subscript
+						}
 					}
 					else
 					{
@@ -463,9 +563,10 @@ T ObjectType::getHelper<T,false>::operator()(const ObjectType* obj,const std::st
 					return *x;
 				else
 				{
-					std::stringstream ss;
-					EXCEPTION_MSG(ss,"Invalid Type Conversion");
-					throw MetaTypeException(ss.str());
+					return obj->get<T>(name + "[0]");		
+					//std::stringstream ss;
+					//EXCEPTION_MSG(ss,"Invalid Type Conversion");
+					//throw MetaTypeException(ss.str());
 				}
 			}
 		}
@@ -583,32 +684,34 @@ T ArrayType::getHelper<T,true>::operator()(const ArrayType* obj,int index) const
 #		define CHECK_DATA_TYPE(TYPE) \
 		if(obj->_DataTypes[index]->get_type_name() == #TYPE){\
 			auto x = dynamic_cast<GenericType<TYPE>*>( metaType.get() );\
-			return std::make_pair(metaType.get_name(),*x);\
+			return *x;\
 		}else 
 #		include	"GenericType.def"
 		//else 
-		if((!std::is_same<T,ObjectType>::value) && 
+		if(obj->_DataTypes[index]->get_type_name() == utils::type<StringType>::name())
+		{
+			auto x = dynamic_cast<StringType*>( obj->_DataTypes[index].get() );\
+				 std::string s = *x;
+			return StringToType<T>{}(s);
+		}
+		else if((!std::is_same<T,ObjectType>::value) && 
 				(metaType->get_type_name() == ObjectType::get_type_name())){
 			auto x = dynamic_cast<ObjectType*>( metaType.get() );
 			if(x != nullptr && (x->_Default >= 0)){
-				return x->get<T>(x->_Default);
+				return x->get<T>(x->_Default).second;
 			}
+			
 		}
-		else
-		{
-			std::stringstream ss;
-			EXCEPTION_MSG(ss,"Data Type not defined");
-			throw MetaTypeException(ss.str());
-			//: data type not found
-		}
+		std::stringstream ss;
+		EXCEPTION_MSG(ss,"Data Type not defined");
+		throw MetaTypeException(ss.str());
+		//: data type not found
 #		undef CHECK_DATA_TYPE
 	}	
-	else{
-		//Data not found exception
-		std::stringstream ss;
-		EXCEPTION_MSG(ss,"Invalid Generic Object");
-		throw MetaTypeException(ss.str());
-	}
+	//Data not found exception
+	std::stringstream ss;
+	EXCEPTION_MSG(ss,"Invalid Generic Object");
+	throw MetaTypeException(ss.str());
 }
 
 template<class T>

@@ -11,7 +11,8 @@ namespace rpt{
  * class client_iostream, provides interfaces to read/write data from/to socket.
  * tcp_connection class notifies when data is present and need to be read data from socket.
  */
-class client_iostream : public fdbase{
+class client_iostream : public std::enable_shared_from_this<client_iostream>,
+	public fdbase{
 public:
 	/*!
 	 * clietn_iostream object will be constructed by providing a std::unique_ptr of socket_base,
@@ -52,13 +53,17 @@ public:
 		return _socket.get();
 	}
 public:
+	bool is_connected(){
+		return _socket->is_connected();
+	}
 	/*!
 	 * An interface to terminate session with remote client, and close the file descriptor.
 	 */
 	bool close(){
-		*_status=0;
+		std::lock_guard<std::mutex> lk (_close_con_mutex);
 		if(!_socket->is_connected())
 			return true;
+		*_status=0;
 		for(auto& close_handler : _close_handlers)
 		{
 			close_handler(_socket->get_fd());
@@ -69,6 +74,7 @@ public:
 		{
 			return true;;
 		}
+		return false;
 	}
 	/*!
 	 * An interface to get the client address(ip:port).
@@ -94,7 +100,7 @@ public:
 		}	
 		else
 		{
-			_thread_pool->context_yield(&client_iostream::check_condition,this);	
+			_thread_pool->context_yield(&client_iostream::check_condition,shared_from_this());	
 			std::string data;
 			get_data(data);
 			return data;
@@ -224,7 +230,7 @@ protected:
 							f();
 							}
 							},
-							std::bind(&client_iostream::notify,this)));
+							std::bind(&client_iostream::notify,shared_from_this())));
 			}
 			else{
 				notify();
@@ -297,6 +303,7 @@ private:
 	std::condition_variable _cv;
 	std::mutex _cv_mutex;
 	std::mutex _notify_mutex;
+	std::mutex _close_con_mutex; // remote client close and application close may execute at the same time.	
 	std::shared_ptr<char> _status;
 	friend class tcp_connection;
 };

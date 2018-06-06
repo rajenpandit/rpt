@@ -26,10 +26,10 @@ void http_connection::decode_header(const std::vector<char>& data){
 			}
 			else{
 				if(_callback != nullptr){
-					_callback(shared_from_this(),shared_from_this());
+					_callback(get_shared_from_this(),get_shared_from_this());
 				}
 				else if(_client_callback != nullptr){
-					_client_callback(shared_from_this());
+					_client_callback(get_shared_from_this());
 				}
 				else{
 					set_resrecvd();
@@ -55,10 +55,10 @@ void http_connection::decode_body(const std::vector<char>& data){
 	notify_to(std::bind(&http_connection::decode_header,this,std::placeholders::_1));
 
 	if(_callback != nullptr){
-		_callback(shared_from_this(),shared_from_this());
+		_callback(get_shared_from_this(),get_shared_from_this());
 	}
 	else if(_client_callback != nullptr){
-		_client_callback(shared_from_this());
+		_client_callback(get_shared_from_this());
 	}
 	else{
 		set_resrecvd();
@@ -105,10 +105,10 @@ void http_connection::decode_chunked_body(const std::vector<char>& data){
 			notify_to(std::bind(&http_connection::decode_header,this,std::placeholders::_1));
 
 			if(_callback != nullptr){
-				_callback(shared_from_this(),shared_from_this());
+				_callback(get_shared_from_this(),get_shared_from_this());
 			}
 			else if(_client_callback != nullptr){
-				_client_callback(shared_from_this());
+				_client_callback(get_shared_from_this());
 			}
 			else{
 				set_resrecvd();

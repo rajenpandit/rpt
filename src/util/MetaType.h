@@ -293,17 +293,17 @@ public:
 	static std::string get_type_name(){
 		return utils::type<ObjectType>::name();
 	}
-	ObjectType() : MetaTypeImpl(this),_Default(-1){
+	ObjectType() : MetaTypeImpl(this),_Default(-1), _CheckArray(true){
 	}
 	template<class T>
-	ObjectType(const std::string& name, T val) : MetaTypeImpl(this), _Default(-1){
+	ObjectType(const std::string& name, T val) : MetaTypeImpl(this), _Default(-1), _CheckArray(true){
 		(*this)[name]=val;
 	}
 	ObjectType(const ObjectType& Obj) : MetaTypeImpl(this){
 		(*this) = Obj;
 	}
 	template<class T>
-	ObjectType(std::initializer_list<std::pair<std::string,T>> list) : MetaTypeImpl(this), _Default(-1){
+	ObjectType(std::initializer_list<std::pair<std::string,T>> list) : MetaTypeImpl(this), _Default(-1), _CheckArray(true){
 		for(auto l : list){
 			(*this)[l.first]=l.second;
 		}
@@ -381,6 +381,7 @@ public:
 private:
 	std::map<std::string,std::size_t> _Index;
 	std::vector<MetaType>  _DataTypes;
+	mutable bool _CheckArray;
 	int _Default;
 friend class ArrayType;
 };

@@ -293,10 +293,11 @@ bool thread_pool::invoke_task(std::chrono::nanoseconds waiting_period)
 		}
 		else
 		{
-			_cv.wait(lk, [this]{return (!(_task_queue.empty()
-							|| _is_cy_event
-						     )||
-						_stop_threads);});	
+			_cv.wait(lk, [this]{
+					std::lock_guard<std::mutex> lkg(_queue_mutex);
+					return (!(_task_queue.empty() || _is_cy_event)
+						|| _stop_threads);
+					});	
 		}
 		std::lock_guard<std::mutex> lkg(_queue_mutex);
 #if 0
