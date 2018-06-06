@@ -143,9 +143,13 @@ class buffered_client_iostream : public client_iostream{
 		void operator = (const buffered_client_iostream&) = delete;
 		buffered_client_iostream(buffered_client_iostream&& bc_ios) : 
 			client_iostream(std::forward<buffered_client_iostream&&>(bc_ios)){
+			swap(*this, bc_ios);
 		}
 		void operator = (buffered_client_iostream && bc_ios){
+			client_iostream::operator = (std::forward<buffered_client_iostream>(bc_ios));
 			swap(*this, bc_ios);
+		}
+		virtual ~buffered_client_iostream(){
 		}
 		/*!
 		 * Clears buffered data and re-initialize object.

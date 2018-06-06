@@ -52,6 +52,12 @@ public:
 	socket_base* operator -> (){
 		return _socket.get();
 	}
+	bool create(int port, const char *ip){
+		return _socket->create(port,ip);
+	}	
+	bool connect(long timeout=0){
+		return _socket->connect(timeout);
+	}
 public:
 	bool is_connected(){
 		return _socket->is_connected();

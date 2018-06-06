@@ -238,7 +238,7 @@ LN_S = ln -s
 LTLIBOBJS = 
 LT_AGE = 0
 LT_CURRENT = 2
-LT_REVISION = 2
+LT_REVISION = 3
 MAKEINFO = ${SHELL} /home/rajendra/prog/GitHub/CPP/rpt/missing makeinfo
 MANIFEST_TOOL = :
 MKDIR_P = /bin/mkdir -p
@@ -251,17 +251,17 @@ OTOOL64 =
 PACKAGE = librpt
 PACKAGE_BUGREPORT = rajenpandit@gmail.com
 PACKAGE_NAME = librpt
-PACKAGE_STRING = librpt 2.0.2
+PACKAGE_STRING = librpt 2.0.3
 PACKAGE_TARNAME = librpt
 PACKAGE_URL = 
-PACKAGE_VERSION = 2.0.2
+PACKAGE_VERSION = 2.0.3
 PATH_SEPARATOR = :
 RANLIB = ranlib
 SED = /bin/sed
 SET_MAKE = 
 SHELL = /bin/sh
 STRIP = strip
-VERSION = 2.0.2
+VERSION = 2.0.3
 abs_builddir = /home/rajendra/prog/GitHub/CPP/rpt/src/http_server
 abs_srcdir = /home/rajendra/prog/GitHub/CPP/rpt/src/http_server
 abs_top_builddir = /home/rajendra/prog/GitHub/CPP/rpt
@@ -304,7 +304,7 @@ mandir = ${datarootdir}/man
 mkdir_p = $(MKDIR_P)
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /home/rajendra/rptlib
+prefix = /usr/local
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
@@ -333,9 +333,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign src/http_server/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu src/http_server/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign src/http_server/Makefile
+	  $(AUTOMAKE) --gnu src/http_server/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \

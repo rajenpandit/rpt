@@ -145,8 +145,9 @@ std::shared_ptr<T> tcp_connection::get_connection(const std::string& ip, int por
 	}
 	if(client == nullptr){
 		client = std::make_shared<T>(std::forward<TArgs>(args)...);
-		(*client)->create(port,ip.c_str());
-		if((*client)->connect(timeout) == false)
+		if(!client->create(port,ip.c_str()))
+			return nullptr;
+		if(!client->connect(timeout))
 			return nullptr;
 	}
 	client->register_close_handler(close_handler_callback);

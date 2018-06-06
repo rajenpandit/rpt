@@ -8,26 +8,29 @@ bool tcp_socket::create(int port){
 	return create(port,NULL);
 }
 bool tcp_socket::create(int port,const char* ip){
-	addrinfo* result;
 	addrinfo* rp;
 	memset (&_addrinfo, 0, sizeof (_addrinfo));
 	_addrinfo.ai_family = AF_UNSPEC; /*Returns IPV4 and IPV6 choices*/
 	_addrinfo.ai_socktype = SOCK_STREAM; /* A TCP Socket */
 	_addrinfo.ai_flags = AI_PASSIVE; /* All Interfaces */
 	std::string s_port = std::to_string(port);
-	
-	if(getaddrinfo (ip, s_port.c_str(), &_addrinfo, &result) != 0)
+	if(_result)
+	{
+		freeaddrinfo(_result);
+		_result = nullptr;
+	}
+	if(getaddrinfo (ip, s_port.c_str(), &_addrinfo, &_result) != 0)
 		return false;
-	for(rp = result; rp != NULL ; rp = rp->ai_next){
+	for(rp = _result; rp != NULL ; rp = rp->ai_next){
 		int fd;
 		if((fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol)) != -1){
+			if(fd > FD_SETSIZE)
+				return false;
 			memcpy(&_addrinfo,rp, sizeof(_addrinfo));
 			_fd = fd;
 			break;
 		}
 	}
-	if(result)
-		freeaddrinfo(result);
 	return true;
 }
 bool tcp_socket::bind(__attribute__((unused)) bool reuse_add, __attribute__((unused)) bool keep_alive, __attribute__((unused)) bool no_delay){
@@ -137,6 +140,7 @@ bool tcp_socket::close(){
 	if(::close(_fd)==-1)
 		return false;
 	_is_connected=false;	
+	_fd = 0;
 	return true;
 }
 const std::string& tcp_socket::get_client_addr() const{

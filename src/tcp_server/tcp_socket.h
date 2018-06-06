@@ -10,6 +10,15 @@
 namespace rpt{
 class tcp_socket : public socket_base{
 public:
+	tcp_socket() : _result(nullptr) {
+	}
+	virtual ~tcp_socket(){
+		if(_result)
+			freeaddrinfo(_result);
+		if(_fd !=0 )
+			close();
+	}
+public:
 	virtual bool create(int port) override;
 	virtual bool create(int port,const char *ip) override;
 	virtual bool bind(bool reuse_add=true, bool keep_alive=true, bool no_delay=true) override;
@@ -22,6 +31,7 @@ public:
 	virtual bool close() override;
 private:
 	addrinfo _addrinfo;
+	addrinfo* _result;
 	std::string _client_addr;
 };
 }

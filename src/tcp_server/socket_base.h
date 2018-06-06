@@ -23,6 +23,9 @@ public: //NOTE: All virtual function must be inherited by derived class
 	virtual const std::string& get_client_addr() const = 0;
 	virtual ~socket_base() {}
 public:
+	socket_base() : _fd(0),_is_connected(false){
+        }
+public:
 	const int& get_fd(){
 		return _fd;
 	};
