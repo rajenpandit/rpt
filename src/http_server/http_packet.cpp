@@ -153,10 +153,14 @@ const std::vector<char>& http_packet::encode(const std::string& body){
 	if(!body.empty()){
 		set_content_length(body.length());
 	}
+	else{
+		set_content_length(0);
+	}
 	for(auto &h : _headers){
 		const std::string& header = h.first + ": " + h.second + "\r\n";
 		_http_packet_data.insert(_http_packet_data.end(), header.begin(), header.end());	
 	}	
+	_headers.clear();
 	const std::string& delimiter = "\r\n";
 	_http_packet_data.insert(_http_packet_data.end(), delimiter.begin(), delimiter.end());	
 	_http_packet_data.insert(_http_packet_data.end(), body.begin(), body.end());

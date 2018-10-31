@@ -76,6 +76,7 @@ public:
 		}
 		_close_handlers.clear();
 		_socket->close();
+		_cv.notify_one();
 		if(!_socket->is_connected())
 		{
 			return true;;
@@ -96,22 +97,23 @@ public:
 	 * If thread_pool object is not set, then caller thread will be put into waiting state untill data is
 	 * available in socket. 
 	 */
-	std::string read(bool block_thread=false){
-		if(_thread_pool==nullptr || block_thread){
-			std::unique_lock<std::mutex> lk(_cv_mutex);
-			_cv.wait(lk, [this]{return rcv_condition();});
-			std::string data;
-			get_data(data);
-			return data;
-		}	
-		else
-		{
-			_thread_pool->context_yield(&client_iostream::check_condition,shared_from_this());	
-			std::string data;
-			get_data(data);
-			return data;
-		}
-	}
+        std::string read(bool is_context_yield=false){
+                if( is_context_yield && _thread_pool!=nullptr){
+                        _thread_pool->context_yield(&client_iostream::check_condition,shared_from_this());
+                        std::string data;
+                        get_data(data);
+                        return data;
+                }
+                else
+                {
+                        std::unique_lock<std::mutex> lk(_cv_mutex);
+                        _cv.wait(lk, [this]{return rcv_condition();});
+                        std::string data;
+                        get_data(data);
+                        return data;
+
+                }
+        }
 	/*!
 	 * An interface to write data to socket.
 	 * @param data: a \c void pointer to a memory location from where data has to be read.
@@ -274,7 +276,7 @@ private:
 	 */
 	void notify(){
 		std::lock_guard<std::mutex> lk (_notify_mutex);
-		while(true){
+		while(is_connected()){
 			if(_notify!=nullptr){
 				if(rcv_condition()){
 					std::vector<char> data;	
@@ -286,10 +288,11 @@ private:
 				}
 			}
 			else{
+#if 0
 				if(_thread_pool!=nullptr)
 					_thread_pool->context_yield_notify();
-				else
-					_cv.notify_one();
+#endif
+				_cv.notify_one();
 				break;
 			}
 		}

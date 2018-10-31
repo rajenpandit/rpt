@@ -441,6 +441,7 @@ public: //operators
 		for( auto element : arr._DataTypes ){
 			_DataTypes.push_back(element);	
 		}
+		return *this;
 	}
 	std::ostream& write_to(std::ostream& os) const override;
 	std::size_t size() const override{

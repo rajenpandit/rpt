@@ -577,6 +577,9 @@ T ObjectType::getHelper<T,false>::operator()(const ObjectType* obj,const std::st
 			throw MetaTypeException(ss.str());
 		}
 	}
+	std::stringstream ss;
+	EXCEPTION_MSG(ss,"Invalid Object");
+	throw MetaTypeException(ss.str());
 }
 
 template<class T>

@@ -46,8 +46,8 @@ protected:
 	int _fd;
 private:
 	std::shared_ptr<socket_base> _socket;
-	std::function<void(socket_base& , unsigned int)> _event_handler;
-	std::function<void(socket_base&)> _close_event_handler;
+	//std::function<void(socket_base& , unsigned int)> _event_handler;
+	//std::function<void(socket_base&)> _close_event_handler;
 };
 }
 #endif

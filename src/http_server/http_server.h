@@ -73,7 +73,8 @@ public:
 	http_server(const std::shared_ptr<socket_factory>& sf, unsigned int max_thread) : _socket_factory(sf),
 	_tcp_connection(sf, max_thread){
 	}
-	http_server(const std::shared_ptr<socket_factory>& sf, std::shared_ptr<thread_pool> threads) :	_tcp_connection(sf, threads){
+	http_server(const std::shared_ptr<socket_factory>& sf, std::shared_ptr<thread_pool> threads) : _socket_factory(sf),
+	_tcp_connection(sf, threads){
 	}
 public:
 	void register_servlet(const std::string& pattern, std::shared_ptr<http_servlet> servlet){

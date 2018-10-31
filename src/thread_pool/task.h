@@ -165,7 +165,7 @@ private:
 		//std::swap(a._function, b._function);
 		std::swap(a._args, b._args);	
 		std::swap(a._pt, b._pt);
-		std::swap(a._flag, b._flag);
+	//	std::swap(a._flag, b._flag); // not swappable
 	}
 private:
 	std::packaged_task<R(Ts...)> _pt;
